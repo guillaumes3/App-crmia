@@ -1,0 +1,198 @@
+/* On garde l'import Tailwind pour les utilitaires de base si besoin */
+@import "tailwindcss";
+
+/* 1. VARIABLES GLOBALES */
+:root {
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --dark: #0f172a;
+  --sidebar: #1e293b;
+  --bg-light: #f8fafc;
+  --white: #ffffff;
+  --text: #475569;
+  --text-light: #94a3b8;
+  --border: #e2e8f0;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* 2. RESET & BASE */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* 3. LAYOUTS (STRUCTURES) */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 260px; /* Largeur de la sidebar */
+  padding: 2.5rem;
+  width: calc(100% - 260px);
+}
+
+/* 4. NAVIGATION & HEADER */
+.main-header {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.sidebar {
+  width: 260px;
+  background-color: var(--sidebar);
+  color: white;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  height: 100vh;
+  left: 0;
+  top: 0;
+}
+
+.nav-menu {
+  list-style: none;
+  margin-top: 2rem;
+}
+
+.nav-menu li {
+  margin-bottom: 0.5rem;
+}
+
+.nav-menu a {
+  display: block;
+  padding: 0.8rem 1rem;
+  color: var(--text-light);
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+.nav-menu a:hover, .nav-menu a.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* 5. COMPOSANTS (HERO, CARDS, BOUTONS) */
+.hero {
+  padding: 120px 0;
+  text-align: center;
+  background: radial-gradient(circle at top, #e0e7ff 0%, var(--bg-light) 100%);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.8rem 1.8rem;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  font-size: 1rem;
+}
+
+.btn-primary {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover) !important;
+  transform: translateY(-2px);
+}
+
+/* 6. FORMULAIRES */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  border-color: var(--primary);
+}
+
+/* 7. TABLES & BADGES */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th {
+  text-align: left;
+  padding: 1rem;
+  color: var(--text-light);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border);
+}
+
+td {
+  padding: 1.2rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.badge {
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #dcfce7;
+  color: #166534;
+}
