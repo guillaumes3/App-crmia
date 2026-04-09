@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabase';
 
 export default function ParametresPage() {
-  const [activeModal, setActiveModal] = useState<null | 'tva' | 'categories' | 'equipe'>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<{ category: string, action: string } | null>(null);
   const [orgId, setOrgId] = useState("");
-  
   const [collabList, setCollabList] = useState<any[]>([]);
   const [selectedCollab, setSelectedCollab] = useState<any>(null);
 
@@ -19,105 +19,108 @@ export default function ParametresPage() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [activeModal]);
+  useEffect(() => { loadData(); }, []);
 
-  const saveCollab = async () => {
-    if (!selectedCollab.nom || !selectedCollab.email) return alert("Nom et Email requis");
-    const isNew = !selectedCollab.id;
-    let error;
-
-    if (isNew) {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: selectedCollab.email,
-        password: "ChangeMe123!",
-        options: { data: { ...selectedCollab, organisation_id: orgId } }
-      });
-      error = signUpError;
-    } else {
-      const { error: upError } = await supabase.from('profiles').update(selectedCollab).eq('id', selectedCollab.id);
-      error = upError;
-    }
-
-    if (!error) {
-      alert(isNew ? "Invitation envoyée !" : "Fiche mise à jour !");
-      setSelectedCollab(null);
-      loadData();
-    }
-  };
-
-  // --- NOUVELLE FONCTION : SUPPRIMER ---
-  const deleteCollab = async () => {
-    if (!selectedCollab.id) return;
-    
-    const confirmDelete = confirm(`Êtes-vous sûr de vouloir retirer ${selectedCollab.nom} de l'équipe ?`);
-    if (!confirmDelete) return;
-
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', selectedCollab.id);
-
-    if (error) {
-      alert("Erreur lors de la suppression : " + error.message);
-    } else {
-      alert("Collaborateur retiré avec succès.");
-      setSelectedCollab(null);
-      loadData();
-    }
-  };
+  const menuConfig = [
+    {
+      id: 'collab', label: 'Collaborateurs', icon: '👥',
+      options: [
+        { label: 'Liste des membres', action: 'list' },
+        { label: 'Ajouter un membre', action: 'add' }
+      ]
+    },
+    { id: 'taxes', label: 'Fiscalité', icon: '📊', options: [{ label: 'Modifier la TVA', action: 'tva' }] },
+    { id: 'cats', label: 'Catégories', icon: '🏷️', options: [{ label: 'Liste', action: 'list' }] },
+    { id: 'loc', label: 'Emplacements', icon: '📍', options: [{ label: 'Gérer les dépôts', action: 'list' }] }
+  ];
 
   return (
-    <div className="page-container">
-      {/* ... Reste de ton code (Header, Cartes de paramètres) ... */}
+    <div className="page-container" style={{ padding: '20px' }}>
+      <h1 style={{ fontWeight: 900, marginBottom: '25px', fontSize: '2rem' }}>Configuration <span style={{color:'#6366f1'}}>Kipilote</span></h1>
 
-      {selectedCollab && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ padding: '30px', maxWidth: '600px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontWeight: 900 }}>Fiche Collaborateur</h2>
-              <button onClick={() => setSelectedCollab(null)} style={{ background: '#f1f5f9', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Fermer</button>
-            </div>
-
-            <div style={{ background: '#f8fafc', padding: '25px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                <div>
-                  <label style={labelS}>NOM COMPLET</label>
-                  <input style={inputS} value={selectedCollab.nom} onChange={e => setSelectedCollab({...selectedCollab, nom: e.target.value})} />
-                  
-                  <label style={labelS}>EMAIL PROFESSIONNEL</label>
-                  {/* CASE DÉBLOQUÉE ICI */}
-                  <input style={inputS} value={selectedCollab.email} onChange={e => setSelectedCollab({...selectedCollab, email: e.target.value})} />
-                </div>
-                <div>
-                  <label style={labelS}>RÔLE KIPILOTE</label>
-                  <select style={inputS} value={selectedCollab.role} onChange={e => setSelectedCollab({...selectedCollab, role: e.target.value})}>
-                    <option>Commercial</option>
-                    <option>Gestionnaire Stock</option>
-                    <option>Administrateur</option>
-                  </select>
-                </div>
+      {/* BARRE DE MENU SECONDAIRE */}
+      <nav style={subNavBar}>
+        {menuConfig.map((menu) => (
+          <div key={menu.id} style={{ position: 'relative' }}>
+            <button onClick={() => setOpenMenu(openMenu === menu.id ? null : menu.id)} style={menuButtonStyle(openMenu === menu.id)}>
+              <span style={{ marginRight: '8px' }}>{menu.icon}</span>{menu.label}
+            </button>
+            {openMenu === menu.id && (
+              <div style={dropdownStyle}>
+                {menu.options.map((opt, i) => (
+                  <div key={i} style={dropdownItem} onClick={() => { setActiveView({ category: menu.id, action: opt.action }); setOpenMenu(null); if(opt.action === 'add') setSelectedCollab({nom:'', email:'', role:'Commercial'}); }}>
+                    {opt.label}
+                  </div>
+                ))}
               </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                <button onClick={saveCollab} style={{ ...saveBtn, flex: 2 }}>Mettre à jour</button>
-                
-                {/* BOUTON SUPPRIMER (Apparaît seulement si le collaborateur existe déjà) */}
-                {selectedCollab.id && (
-                  <button onClick={deleteCollab} style={deleteBtnStyle}>Supprimer</button>
-                )}
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-      )}
+        ))}
+      </nav>
+
+      {/* ZONE D'AFFICHAGE */}
+      <div style={contentArea}>
+        {!activeView ? (
+          <div style={welcomeBox}>
+            <div style={{fontSize: '3rem', marginBottom: '15px'}}>⚙️</div>
+            <h2 style={{fontWeight: 800}}>Prêt à configurer ?</h2>
+            <p style={{color: '#64748b'}}>Utilisez le menu ci-dessus pour gérer votre équipe, vos taxes ou vos emplacements.</p>
+          </div>
+        ) : (
+          <div style={viewCard}>
+            {activeView.category === 'collab' && activeView.action === 'list' && (
+              <>
+                <h3 style={viewTitle}>Liste de l'équipe</h3>
+                <div style={tableWrap}>
+                  <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                    <thead>
+                      <tr style={{textAlign: 'left', borderBottom: '2px solid #f1f5f9'}}>
+                        <th style={thS}>NOM</th><th style={thS}>RÔLE</th><th style={thS}>EMAIL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {collabList.map(c => (
+                        <tr key={c.id} style={{borderBottom: '1px solid #f1f5f9'}}>
+                          <td style={tdS}><strong>{c.nom}</strong></td>
+                          <td style={tdS}><span style={roleTag}>{c.role}</span></td>
+                          <td style={tdS}>{c.email}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            
+            {activeView.category === 'collab' && activeView.action === 'add' && (
+               <div>
+                  <h3 style={viewTitle}>Nouvelle invitation</h3>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '400px'}}>
+                     <input style={inS} placeholder="Nom Complet" value={selectedCollab?.nom} onChange={e => setSelectedCollab({...selectedCollab, nom: e.target.value})} />
+                     <input style={inS} placeholder="Email" value={selectedCollab?.email} onChange={e => setSelectedCollab({...selectedCollab, email: e.target.value})} />
+                     <button style={btnS}>Envoyer l'invitation</button>
+                  </div>
+               </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// --- AJOUTS STYLES ---
-const labelS = { display: 'block', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' as const };
-const inputS = { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '15px', outline: 'none' };
-const saveBtn = { background: '#0f172a', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 800, cursor: 'pointer' };
-const deleteBtnStyle = { background: '#fee2e2', color: '#ef4444', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 800, cursor: 'pointer', flex: 1 };
+// STYLES
+const subNavBar = { display: 'flex', gap: '10px', background: 'white', padding: '10px', borderRadius: '15px', border: '1px solid #e2e8f0', marginBottom: '25px', flexWrap: 'wrap' as any };
+const menuButtonStyle = (active: boolean) => ({ background: active ? '#6366f1' : 'transparent', color: active ? 'white' : '#475569', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer' });
+const dropdownStyle = { position: 'absolute' as any, top: '50px', left: 0, background: 'white', minWidth: '200px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', zIndex: 100 };
+const dropdownItem = { padding: '12px 15px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', borderBottom: '1px solid #f1f5f9' };
+const contentArea = { minHeight: '400px' };
+const welcomeBox = { textAlign: 'center' as any, padding: '80px 20px', border: '2px dashed #e2e8f0', borderRadius: '30px', background: 'white' };
+const viewCard = { background: 'white', padding: '30px', borderRadius: '25px', border: '1px solid #e2e8f0' };
+const viewTitle = { marginTop: 0, marginBottom: '20px', fontWeight: 900 };
+const tableWrap = { overflowX: 'auto' as any };
+const thS = { padding: '12px', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 800 };
+const tdS = { padding: '12px', fontSize: '0.9rem' };
+const roleTag = { background: '#e0e7ff', color: '#6366f1', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 };
+const inS = { padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' };
+const btnS = { background: '#6366f1', color: 'white', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, cursor: 'pointer' };
