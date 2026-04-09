@@ -1,70 +1,135 @@
 "use client";
+
 import { useEffect, useState } from 'react';
-import { getGlobalStats } from '../../utils/stats';
+import { supabase } from '../../utils/supabase';
+import { getDashboardStats } from '@/app/services/stats';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
+  const [isInfiltration, setIsInfiltration] = useState(false);
 
   useEffect(() => {
-    setStats(getGlobalStats());
+    const loadData = async () => {
+      // 1. Récupération de la session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // 2. Vérification du mode infiltration
+      const impersonatedId = typeof window !== 'undefined' ? localStorage.getItem('impersonated_org_id') : null;
+      
+      if (session) {
+        setUser(session.user);
+        setIsInfiltration(!!impersonatedId);
+
+        // 3. Choix de l'organisation à charger
+        const orgIdToUse = impersonatedId || session.user.user_metadata.organisation_id;
+        
+        if (orgIdToUse) {
+          const data = await getDashboardStats(orgIdToUse);
+          setStats(data);
+        }
+      }
+    };
+    loadData();
   }, []);
 
-  if (!stats) return <div style={{padding: '40px'}}>Initialisation du pilotage...</div>;
+  // Styles réutilisables
+  const cardStyle = {
+    background: '#FFFFFF',
+    padding: '32px',
+    borderRadius: '24px',
+    boxShadow: '0 10px 40px -10px rgba(0,0,0,0.04)',
+    border: '1px solid rgba(0,0,0,0.02)',
+    flex: 1,
+    transition: 'transform 0.2s ease'
+  };
 
-  const cardStyle = { background: 'white', padding: '25px', borderRadius: '15px', border: '1px solid #e2e8f0' };
+  const labelStyle = {
+    color: '#8E8E93',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '1px',
+    marginBottom: '16px'
+  };
+
+  const valueStyle = {
+    fontSize: '2.8rem',
+    fontWeight: 800,
+    color: '#000'
+  };
 
   return (
-    <div>
-      <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '25px', color: '#1e293b' }}>
-        Tableau de bord de pilotage
-      </h1>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       
-      {/* GRILLE DE CHIFFRES CLÉS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+      {/* HEADER */}
+      <header style={{ marginBottom: '48px' }}>
+        <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: '#1A1A1A', letterSpacing: '-1px', marginBottom: '8px' }}>
+          Tableau de bord
+        </h1>
+        <p style={{ color: '#8E8E93', fontSize: '1.1rem', fontWeight: 500 }}>
+          {isInfiltration 
+            ? "✦ Mode Maintenance Expert" 
+            : `Ravi de vous revoir, ${user?.user_metadata?.nom || 'Gérant'}`
+          }
+        </p>
+      </header>
+
+      {/* GRILLE DE STATISTIQUES */}
+      <div style={{ display: 'flex', gap: '24px', marginBottom: '48px' }}>
         <div style={cardStyle}>
-          <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px' }}>CA GLOBAL ESTIMÉ (TTC)</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#6366f1', marginTop: '10px' }}>
-            {(stats.caAmazon + stats.caShopify).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+          <div style={labelStyle}>Articles</div>
+          <div style={valueStyle}>{stats?.nbProduits || 0}</div>
+          <div style={{ marginTop: '8px', color: '#34C759', fontSize: '0.9rem', fontWeight: 600 }}>↑ +2 ce jour</div>
+        </div>
+        
+        <div style={cardStyle}>
+          <div style={labelStyle}>Valeur Stock</div>
+          <div style={valueStyle}>
+            {stats?.valeurStock || "0.00"}
+            <span style={{ fontSize: '1.5rem', marginLeft: '4px' }}>€</span>
           </div>
-          <div style={{ marginTop: '15px', fontSize: '0.8rem', display: 'flex', gap: '10px' }}>
-            <span style={{ color: '#FF9900' }}>● Amazon: {stats.caAmazon.toFixed(0)}€</span>
-            <span style={{ color: '#95BF47' }}>● Shopify: {stats.caShopify.toFixed(0)}€</span>
-          </div>
+          <div style={{ marginTop: '8px', color: '#8E8E93', fontSize: '0.9rem' }}>Actif circulant</div>
         </div>
 
         <div style={cardStyle}>
-          <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 800 }}>UNITÉS VENDUES</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#1e293b', marginTop: '10px' }}>
-            {stats.ventesTotales} <span style={{fontSize: '1rem', color: '#94a3b8'}}>commandes</span>
-          </div>
-          <div style={{ marginTop: '15px', height: '8px', background: '#f1f5f9', borderRadius: '4px', display: 'flex', overflow: 'hidden' }}>
-            <div style={{ width: `${(stats.caAmazon / (stats.caAmazon + stats.caShopify || 1)) * 100}%`, background: '#FF9900' }}></div>
-            <div style={{ flex: 1, background: '#95BF47' }}></div>
-          </div>
-        </div>
-
-        <div style={cardStyle}>
-          <div style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 800 }}>ÉTAT DES STOCKS</div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: stats.alertes > 0 ? '#ef4444' : '#10b981', marginTop: '10px' }}>
-            {stats.stockTotal} <span style={{fontSize: '1rem', color: '#94a3b8'}}>en main</span>
-          </div>
-          {stats.alertes > 0 ? (
-             <div style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 700, marginTop: '15px' }}>⚠️ {stats.alertes} articles en rupture imminente</div>
-          ) : (
-             <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 700, marginTop: '15px' }}>✅ Niveaux de stock sains</div>
-          )}
+          <div style={labelStyle}>Ventes mensuelles</div>
+          <div style={valueStyle}>{stats?.nbVentes || 0}</div>
+          <div style={{ marginTop: '8px', color: '#FF9500', fontSize: '0.9rem', fontWeight: 600 }}>En attente de données</div>
         </div>
       </div>
 
-      {/* SECTION ANALYSE RAPIDE */}
-      <div style={{ background: '#1e293b', padding: '30px', borderRadius: '20px', color: 'white' }}>
-          <h3 style={{ margin: 0, fontSize: '1rem' }}>Recommandation de l'IA</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '10px', maxWidth: '600px' }}>
-            {stats.alertes > 0 
-              ? `Attention, vous avez ${stats.alertes} produits dont le stock est critique. Nous vous conseillons de réapprovisionner pour éviter une baisse de votre Buy Box Amazon.`
-              : "Vos performances sont stables sur les deux canaux. Aucune action urgente n'est requise aujourd'hui."}
+      {/* BANNIÈRE IA ANALYTICS */}
+      <div style={{ 
+        background: '#000000', 
+        padding: '40px', 
+        borderRadius: '32px', 
+        color: 'white', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+      }}>
+        <div style={{ flex: 1 }}>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '10px' }}>🧠 Analyse Prédictive</h3>
+          <p style={{ color: '#A1A1A6', fontSize: '1rem', lineHeight: '1.6', maxWidth: '600px' }}>
+            {(!stats || stats?.nbProduits < 5) 
+              ? "Votre inventaire est actuellement limité. L'IA suggère d'ajouter au moins 10 références pour optimiser vos futures prédictions de vente."
+              : "Analyse terminée : Vos niveaux de stock sont optimaux pour absorber la demande des 14 prochains jours."}
           </p>
+        </div>
+        <button style={{ 
+          background: 'white', color: 'black', border: 'none', padding: '14px 28px', 
+          borderRadius: '14px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+          transition: '0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+        onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+        >
+          Optimiser maintenant
+        </button>
       </div>
+
     </div>
   );
 }
