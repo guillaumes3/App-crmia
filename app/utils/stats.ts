@@ -1,18 +1,15 @@
+// src/app/utils/stats.ts
 export const getGlobalStats = () => {
+  if (typeof window === 'undefined') return null;
+  
   const produits = JSON.parse(localStorage.getItem('mes_produits') || '[]');
   
   return produits.reduce((acc: any, p: any) => {
-    // Calcul de la marge et prix pour cet article
-    const tva = 1.20;
-    const pVenteAmz = (p.prixAchat + 20) * tva; // On garde tes marges par défaut
-    const pVenteShp = (p.prixAchat + 15) * tva;
-    
-    acc.caAmazon += p.stats.amazon.ventes * pVenteAmz;
-    acc.caShopify += p.stats.shopify.ventes * pVenteShp;
-    acc.ventesTotales += (p.stats.amazon.ventes + p.stats.shopify.ventes);
-    acc.stockTotal += p.stock;
-    if (p.stock < 10) acc.alertes += 1;
-    
+    acc.caAmazon += (p.stats?.amazon?.ventes || 0) * (p.prixAchat * 1.5);
+    acc.caShopify += (p.stats?.shopify?.ventes || 0) * (p.prixAchat * 1.3);
+    acc.ventesTotales += (p.stats?.amazon?.ventes || 0) + (p.stats?.shopify?.ventes || 0);
+    acc.stockTotal += (p.stock || 0);
+    if (p.stock < 5) acc.alertes += 1;
     return acc;
   }, { caAmazon: 0, caShopify: 0, ventesTotales: 0, stockTotal: 0, alertes: 0 });
 };

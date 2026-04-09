@@ -1,8 +1,8 @@
-import "./globals.css";
+import './globals.css'; // Tes styles globaux
 
 export const metadata = {
-  title: "CRM AI | Votre assistant SaaS",
-  description: "Gérez vos marketplaces avec l'IA",
+  title: 'CRM AI',
+  description: 'Gestion intelligente de stock',
 };
 
 export default function RootLayout({
@@ -12,11 +12,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <head>
-        {/* On force l'import de la police que tu aimes */}
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet" />
-      </head>
-      <body style={{ margin: 0, padding: 0 }}>
+      <body style={{ margin: 0, padding: 0, fontFamily: 'sans-serif' }}>
+        {/* On ne met rien ici, le contenu change selon la page */}
         {children}
       </body>
     </html>
