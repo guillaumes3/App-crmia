@@ -57,6 +57,7 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
             <Link href="/backoffice/dashboard" style={navItemStyle('/backoffice/dashboard')}>Dashboard</Link>
             <Link href="/backoffice/articles" style={navItemStyle('/backoffice/articles')}>Stock</Link>
             <Link href="/backoffice/commandes" style={navItemStyle('/backoffice/commandes')}>Commandes</Link>
+            <Link href="/backoffice/clients" style={navItemStyle('/backoffice/clients')}>Clients</Link>
             <Link href="/backoffice/ventes" style={navItemStyle('/backoffice/ventes')}>Ventes</Link>
             <Link href="/backoffice/parametres" style={navItemStyle('/backoffice/parametres')}>Paramètres</Link>
           </div>

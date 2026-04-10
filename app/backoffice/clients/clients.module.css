@@ -1,0 +1,465 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  color: #0f172a;
+}
+
+.header p {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.95rem;
+  max-width: 650px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.exportButton {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.createCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.createCardHeader h2 {
+  font-size: 1.1rem;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.createCardHeader p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.createForm {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.createGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.inputGroup span {
+  font-size: 0.78rem;
+  color: #475569;
+  font-weight: 700;
+}
+
+.inputGroup input,
+.inputGroup select,
+.inputGroup textarea {
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 0.9rem;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.createError,
+.pageError {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+}
+
+.loadingState {
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kpiCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.55);
+}
+
+.kpiCard span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.kpiCard strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.65rem;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.kpiCard small {
+  display: block;
+  margin-top: 8px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.clientsPanel,
+.detailPanel {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.clientsPanel {
+  overflow: hidden;
+}
+
+.toolbar {
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #dbe3ee;
+  font-size: 0.9rem;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+}
+
+.filters select {
+  min-width: 132px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #dbe3ee;
+  font-size: 0.85rem;
+}
+
+.tableContainer {
+  overflow-x: auto;
+}
+
+.tableContainer table {
+  margin-top: 0;
+}
+
+.tableContainer thead {
+  background: #f8fafc;
+}
+
+.tableContainer tr {
+  cursor: pointer;
+}
+
+.tableContainer tr:hover {
+  background: #f8faff;
+}
+
+.selectedRow {
+  background: #eef2ff;
+}
+
+.clientIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clientIdentity strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.clientIdentity span {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.money {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.detailPanel {
+  padding: 20px;
+  position: sticky;
+  top: 96px;
+}
+
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.detailHeader h2 {
+  font-size: 1.2rem;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.detailMeta {
+  margin-top: 8px;
+  color: #64748b;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.detailGrid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detailGrid div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.detailGrid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.detailGrid strong {
+  display: block;
+  margin-top: 2px;
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 0.94rem;
+}
+
+.actionsBox {
+  margin-top: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fcfdff;
+}
+
+.actionsBox h3 {
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 800;
+}
+
+.actionsBox ul {
+  margin-top: 9px;
+  margin-left: 18px;
+  color: #475569;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.primaryAction {
+  margin-top: 18px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 700;
+  background: #111827;
+  color: white;
+  cursor: pointer;
+}
+
+.aiInsight {
+  border-radius: 16px;
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(120deg, #eef2ff 0%, #f8fafc 100%);
+  padding: 16px 18px;
+}
+
+.aiInsight strong {
+  color: #4338ca;
+  font-weight: 800;
+}
+
+.aiInsight p {
+  margin-top: 6px;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusVip {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.statusActive {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.statusToFollow {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.statusInactive {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.sourceShopify {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.sourceAmazon {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.sourceSite {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.emptyState {
+  padding: 16px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1260px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .detailPanel {
+    position: static;
+  }
+}
+
+@media (max-width: 700px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .headerActions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .exportButton {
+    width: 100%;
+  }
+
+  .secondaryButton {
+    width: 100%;
+  }
+
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .createGrid {
+    grid-template-columns: 1fr;
+  }
+}
