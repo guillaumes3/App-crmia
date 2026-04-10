@@ -4,11 +4,20 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../utils/supabase';
 
+type BackOfficeUser = {
+  name: string;
+  role: string;
+  initials: string;
+};
+
 export default function BackOfficeLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<BackOfficeUser | null>(null);
+  const [isMaintenanceBlocked, setIsMaintenanceBlocked] = useState(false);
+  const [maintenanceOrgName, setMaintenanceOrgName] = useState<string>("");
+  const [isMaintenanceSession, setIsMaintenanceSession] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -20,6 +29,29 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
           role: metadata.role || "Collaborateur",
           initials: (metadata.nom ? metadata.nom.substring(0, 2).toUpperCase() : "US"),
         });
+
+        const impersonatedId = typeof window !== "undefined" ? localStorage.getItem("impersonated_org_id") : null;
+        const maintenanceOverride = typeof window !== "undefined" ? localStorage.getItem("maintenance_override") === "1" : false;
+        const maintenanceOrgId = typeof window !== "undefined" ? localStorage.getItem("maintenance_org_id") : null;
+
+        const orgIdToUse = impersonatedId || session.user.user_metadata.organisation_id;
+        const isMasterMaintenanceForOrg = Boolean(maintenanceOverride && maintenanceOrgId === orgIdToUse);
+        setIsMaintenanceSession(Boolean(impersonatedId && isMasterMaintenanceForOrg));
+
+        if (orgIdToUse) {
+          const { data: organisation } = await supabase
+            .from('organisations')
+            .select('nom, maintenance_mode')
+            .eq('id', orgIdToUse)
+            .single();
+
+          if (organisation?.maintenance_mode && !isMasterMaintenanceForOrg) {
+            setIsMaintenanceBlocked(true);
+            setMaintenanceOrgName(organisation.nom || "Cette entreprise");
+          } else {
+            setIsMaintenanceBlocked(false);
+          }
+        }
       } else {
         router.push('/login');
       }
@@ -37,6 +69,34 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
     borderRadius: '25px',
     transition: '0.2s'
   });
+
+  const quitMaintenanceSession = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("impersonated_org_id");
+      localStorage.removeItem("maintenance_override");
+      localStorage.removeItem("maintenance_org_id");
+    }
+    router.push('/master-admin');
+  };
+
+  if (isMaintenanceBlocked) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ width: '100%', maxWidth: '560px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '28px', boxShadow: '0 20px 45px -30px rgba(15,23,42,0.35)' }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '10px' }}>Maintenance en cours</h1>
+          <p style={{ color: '#475569', lineHeight: 1.6, marginBottom: '18px' }}>
+            {maintenanceOrgName} est temporairement indisponible pour maintenance. L&apos;acces est restreint pendant cette operation.
+          </p>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }}
+            style={{ border: 'none', background: '#111827', color: 'white', borderRadius: '10px', padding: '10px 14px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Se deconnecter
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
@@ -64,6 +124,15 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
         </div>
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '15px' }}>
+          {isMaintenanceSession && (
+            <button
+              type="button"
+              onClick={quitMaintenanceSession}
+              style={{ border: '1px solid #dbe3ee', background: '#ffffff', color: '#0f172a', borderRadius: '10px', padding: '8px 12px', fontWeight: 700, fontSize: '0.76rem', cursor: 'pointer' }}
+            >
+              Quitter maintenance
+            </button>
+          )}
           <div onClick={() => setIsMenuOpen(!isMenuOpen)} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>{user?.name}</div>

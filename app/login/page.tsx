@@ -1,7 +1,12 @@
 "use client";
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { useRouter } from 'next/navigation';
+
+const isRefreshTokenError = (error: { message?: string; name?: string } | null) => {
+  const rawMessage = `${error?.name ?? ''} ${error?.message ?? ''}`.toLowerCase();
+  return rawMessage.includes('refresh token');
+};
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -9,14 +14,35 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [nomEntreprise, setNomEntreprise] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState("");
   const router = useRouter();
 
   // --- TON MOT DE PASSE SECRET MASTER ---
   const MASTER_PASSWORD = "admin123"; 
 
+  const resetCorruptedSession = useCallback(async () => {
+    localStorage.clear();
+    await supabase.auth.signOut();
+    setSessionExpiredMessage("Votre session a expiré, veuillez vous reconnecter.");
+    router.replace('/login');
+    router.refresh();
+  }, [router]);
+
+  useEffect(() => {
+    const validateStoredSession = async () => {
+      const { error } = await supabase.auth.getSession();
+      if (isRefreshTokenError(error)) {
+        await resetCorruptedSession();
+      }
+    };
+
+    void validateStoredSession();
+  }, [resetCorruptedSession]);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setSessionExpiredMessage("");
 
     // 🛡️ ACCÈS DÉROBÉ POUR LE MASTER ADMIN
     if (email.toLowerCase() === "admin" && password === MASTER_PASSWORD) {
@@ -27,10 +53,24 @@ export default function LoginPage() {
 
     if (isLogin) {
       // --- CONNEXION CLASSIQUE CLIENT ---
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (isRefreshTokenError(signOutError)) {
+        await resetCorruptedSession();
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        if (isRefreshTokenError(error)) {
+          await resetCorruptedSession();
+          setIsLoading(false);
+          return;
+        }
+
         alert("Erreur : " + error.message);
       } else {
+        router.refresh();
         router.push('/backoffice/dashboard');
       }
     } else {
@@ -58,7 +98,14 @@ export default function LoginPage() {
         }
       });
 
-      if (authError) alert(authError.message);
+      if (authError) {
+        if (isRefreshTokenError(authError)) {
+          await resetCorruptedSession();
+          setIsLoading(false);
+          return;
+        }
+        alert(authError.message);
+      }
       else alert("Compte entreprise créé ! Vérifiez vos emails.");
     }
     setIsLoading(false);
@@ -70,6 +117,11 @@ export default function LoginPage() {
         <h2 style={{ textAlign: 'center', marginBottom: '30px', fontWeight: 800 }}>
              Connexion <span style={{ color: '#6366f1' }}>Kipilote</span>
         </h2>
+        {sessionExpiredMessage && (
+          <p style={{ color: '#6366f1', textAlign: 'center', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 600 }}>
+            {sessionExpiredMessage}
+          </p>
+        )}
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {!isLogin && (
             <input 

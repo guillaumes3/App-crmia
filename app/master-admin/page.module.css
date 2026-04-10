@@ -1,0 +1,524 @@
+.page {
+  min-height: 100vh;
+  background: #f8fafc;
+  padding: 32px;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.header p {
+  margin-top: 6px;
+  color: #475569;
+  max-width: 760px;
+}
+
+.searchBox {
+  min-width: 360px;
+}
+
+.searchBox input {
+  width: 100%;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.kpiCard span {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+}
+
+.kpiCard strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.kpiCard small {
+  display: block;
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.tabButton,
+.activeTabButton {
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  background: white;
+  cursor: pointer;
+}
+
+.activeTabButton {
+  border-color: #4f46e5;
+  color: #4338ca;
+  background: #eef2ff;
+}
+
+.errorBanner,
+.successBanner,
+.loadingBanner {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+}
+
+.errorBanner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.successBanner {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.loadingBanner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 14px;
+}
+
+.billingGrid,
+.accessGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cardHeader h2,
+.cardHeader h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.cardHeader p {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  color: #64748b;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 8px;
+}
+
+.table td {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 8px;
+  vertical-align: middle;
+}
+
+.table select,
+.table button {
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: white;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+
+.orgIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.orgIdentity strong {
+  font-size: 0.92rem;
+}
+
+.orgIdentity span {
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.actionRow {
+  display: flex;
+  gap: 6px;
+}
+
+.invoiceActionRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.buttonDanger {
+  color: #b91c1c;
+}
+
+.badgeSuccess,
+.badgeDanger,
+.badgeWarning,
+.badgeMuted {
+  border: none;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badgeSuccess {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badgeDanger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badgeWarning {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.badgeMuted {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.statList {
+  display: grid;
+  gap: 10px;
+}
+
+.statList div {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.statList span {
+  font-size: 0.77rem;
+  color: #64748b;
+}
+
+.statList strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1rem;
+}
+
+.distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.distributionLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+}
+
+.distributionBar {
+  margin-top: 4px;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.distributionBar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5, #6366f1);
+}
+
+.activityList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+}
+
+.activityList li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.activityDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.activityInfo {
+  background: #93c5fd;
+}
+
+.activitySuccess {
+  background: #22c55e;
+}
+
+.activityWarning {
+  background: #f59e0b;
+}
+
+.activityList strong {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.activityList small {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.emptyState {
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.formGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.formGrid span {
+  font-size: 0.75rem;
+  color: #475569;
+  font-weight: 700;
+}
+
+.formGrid input,
+.formGrid select {
+  border: 1px solid #dbe3ee;
+  border-radius: 9px;
+  background: white;
+  padding: 9px 10px;
+  font-size: 0.88rem;
+}
+
+.inlineInfo {
+  margin-top: 10px;
+  color: #475569;
+  font-size: 0.83rem;
+}
+
+.formActions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.formActions button,
+.modalActions button {
+  border: none;
+  border-radius: 10px;
+  background: #111827;
+  color: white;
+  padding: 9px 13px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.muted {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.checklist {
+  margin-left: 18px;
+  color: #334155;
+  font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal {
+  width: min(460px, 92vw);
+  background: white;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+}
+
+.modal h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.modal p {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+.modal input {
+  margin-top: 12px;
+  width: 100%;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  letter-spacing: 4px;
+  font-size: 1.1rem;
+}
+
+.modalActions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modalActions button:first-child {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+@media (max-width: 1440px) {
+  .kpiGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .page {
+    padding: 18px;
+  }
+
+  .mainGrid,
+  .billingGrid,
+  .accessGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .searchBox {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+}
