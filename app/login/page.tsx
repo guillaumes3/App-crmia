@@ -67,8 +67,8 @@ export default function LoginPage() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f8fafc' }}>
       <div style={{ background: 'white', padding: '2.5rem', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '2rem', fontWeight: 800 }}>
-          {isLogin ? "Connexion CRM AI" : "Créer votre instance ERP"}
+        <h2 style={{ textAlign: 'center', marginBottom: '30px', fontWeight: 800 }}>
+             Connexion <span style={{ color: '#6366f1' }}>Kipilote</span>
         </h2>
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {!isLogin && (
