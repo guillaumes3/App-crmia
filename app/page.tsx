@@ -15,7 +15,7 @@ export default function HomePage() {
       <nav style={{ 
         display: 'flex', justifyContent: 'space-between', padding: '20px 50px', 
         alignItems: 'center', background: 'white', borderBottom: '1px solid #e2e8f0',
-        position: 'sticky', top: 0, zZindex: 1000 
+        position: 'sticky', top: 0, zIndex: 1000 
       }}>
         <div style={{ fontSize: '1.5rem', fontWeight: 950, letterSpacing: '-1.5px' }}>
           KIPILOTE<span style={{ color: '#6366f1' }}>.</span>
