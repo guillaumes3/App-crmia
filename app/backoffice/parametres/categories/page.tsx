@@ -38,7 +38,7 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Confirmer la suppression de cette catégorie ?')) return;
+    if (!confirm('Supprimer cette catégorie ?')) return;
     await supabase.from('categories').delete().eq('id', id);
     loadData(orgId);
   };
@@ -46,53 +46,124 @@ export default function CategoriesPage() {
   return (
     <div style={viewCard}>
       <header style={cardHeader}>
-        <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Classification des Articles</h2>
-        <button onClick={() => setShowAdd(!showAdd)} style={submitBtn}>
-          {showAdd ? 'Annuler' : 'Nouvelle catégorie'}
-        </button>
+        <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Gestion des Catégories</h2>
+        <button onClick={() => setShowAdd(!showAdd)} style={submitBtn}>{showAdd ? 'Annuler' : '+ Nouvelle catégorie'}</button>
       </header>
 
       {showAdd && (
         <form onSubmit={handleCreate} style={inlineFormBox}>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '15px' }}>
-            <div>
-              <label style={labelS}>Nom de la catégorie</label>
-              <input style={inS} placeholder="Exemple: Électronique, Textile..." value={newCat.nom} onChange={e => setNewCat({...newCat, nom: e.target.value})} required />
-            </div>
-            <div>
-              <label style={labelS}>Couleur</label>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <input type="color" value={newCat.couleur} onChange={e => setNewCat({...newCat, couleur: e.target.value})} style={{ height: '40px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>{newCat.couleur}</span>
-              </div>
+            <input style={inS} placeholder="Nom de la catégorie" value={newCat.nom} onChange={e => setNewCat({...newCat, nom: e.target.value})} required />
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input type="color" value={newCat.couleur} onChange={e => setNewCat({...newCat, couleur: e.target.value})} style={{ height: '40px', cursor: 'pointer', border: 'none', background: 'none' }} />
+                <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{newCat.couleur}</span>
             </div>
           </div>
-          <button type="submit" disabled={loading} style={{...submitBtn, marginTop: '15px', width: '100%'}}>Enregistrer la catégorie</button>
+          <button type="submit" disabled={loading} style={{...submitBtn, marginTop: '15px', width: '100%'}}>Enregistrer</button>
         </form>
       )}
 
       <table style={tableS}>
         <thead>
           <tr style={thRow}>
-            <th style={thS}>Repère</th>
-            <th style={thS}>Désignation</th>
+            <th style={thS}>Couleur</th>
+            <th style={thS}>Nom</th>
             <th style={thS}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {categorieList.length === 0 ? (
-            <tr><td colSpan={3} style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>Aucune catégorie configurée.</td></tr>
-          ) : (
-            categorieList.map(cat => (
-              <tr key={cat.id} style={trRow}>
-                <td style={tdS}><div style={{ width: '24px', height: '24px', borderRadius: '6px', background: cat.couleur }} /></td>
-                <td style={tdS}><strong>{cat.nom}</strong></td>
-                <td style={tdS}><button onClick={() => handleDelete(cat.id)} style={dangerBtn}>Supprimer</button></td>
-              </tr>
-            ))
-          )}
+          {categorieList.map(cat => (
+            <tr key={cat.id} style={trRow}>
+              <td style={tdS}><div style={{ width: '24px', height: '24px', borderRadius: '6px', background: cat.couleur }} /></td>
+              <td style={tdS}><strong>{cat.nom}</strong></td>
+              <td style={tdS}><button onClick={() => handleDelete(cat.id)} style={dangerBtn}>Supprimer</button></td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
+
+// ============================================================
+// STYLES (DÉFINIS EXPLICITEMENT POUR LE BUILD VERCEL)
+// ============================================================
+
+const viewCard: React.CSSProperties = { 
+  background: 'white', 
+  padding: '30px', 
+  borderRadius: '20px', 
+  border: '1px solid #e2e8f0' 
+};
+
+const cardHeader: React.CSSProperties = { 
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'center', 
+  marginBottom: '25px' 
+};
+
+const inlineFormBox: React.CSSProperties = { 
+  background: '#f8fafc', 
+  padding: '20px', 
+  borderRadius: '15px', 
+  marginBottom: '25px',
+  border: '1px solid #f1f5f9'
+};
+
+const inS: React.CSSProperties = { 
+  padding: '12px', 
+  borderRadius: '8px', 
+  border: '1px solid #e2e8f0', 
+  width: '100%',
+  outline: 'none'
+};
+
+const submitBtn: React.CSSProperties = { 
+  background: '#0f172a', 
+  color: 'white', 
+  border: 'none', 
+  padding: '10px 20px', 
+  borderRadius: '10px', 
+  fontWeight: 700, 
+  cursor: 'pointer' 
+};
+
+const tableS: React.CSSProperties = { 
+  width: '100%', 
+  borderCollapse: 'collapse' 
+};
+
+const thRow: React.CSSProperties = { 
+  textAlign: 'left', 
+  borderBottom: '2px solid #f1f5f9' 
+};
+
+const thS: React.CSSProperties = { 
+  padding: '15px 10px', 
+  fontSize: '0.7rem', 
+  color: '#94a3b8', 
+  fontWeight: 800, 
+  textTransform: 'uppercase' 
+};
+
+const tdS: React.CSSProperties = { 
+  padding: '15px 10px', 
+  fontSize: '0.85rem', 
+  borderBottom: '1px solid #f1f5f9' 
+};
+
+const trRow: React.CSSProperties = { 
+  transition: '0.2s' 
+};
+
+const dangerBtn: React.CSSProperties = { 
+  background: '#fef2f2', 
+  color: '#991b1b', 
+  border: '1px solid #fecaca', 
+  padding: '6px 12px', 
+  borderRadius: '8px', 
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: '0.75rem'
+};
