@@ -1,21 +1,12 @@
-import './globals.css'; // Tes styles globaux
-
 export const metadata = {
-  title: 'CRM AI',
-  description: 'Gestion intelligente de stock',
-};
+  title: 'Kipilote | Votre business sous contrôle',
+  description: 'Logiciel de gestion et pilotage d\'entreprise',
+}
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body style={{ margin: 0, padding: 0, fontFamily: 'sans-serif' }}>
-        {/* On ne met rien ici, le contenu change selon la page */}
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
-  );
+  )
 }

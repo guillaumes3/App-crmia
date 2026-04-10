@@ -1,90 +1,32 @@
-import Link from 'next/link';
+"use client";
+import { useRouter } from 'next/navigation';
 
-export default function Home() {
+export default function HomePage() {
+  const router = useRouter();
+
   return (
-    <div style={{ margin: 0, padding: 0, boxSizing: 'border-box', fontFamily: 'sans-serif' }}>
-      
-      {/* HEADER */}
-      <header style={{
-        height: '80px',
-        display: 'flex',
-        alignItems: 'center',
-        background: 'white',
-        borderBottom: '1px solid #e2e8f0',
-        width: '100%'
-      }}>
-        <nav style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '0 20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          width: '100%'
-        }}>
-          {/* LOGO */}
-          <Link href="/" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', textDecoration: 'none' }}>
-            CRM<span style={{ color: '#6366f1' }}>AI</span>
-          </Link>
-
-          {/* MENU */}
-          <ul style={{
-            display: 'flex',
-            listStyle: 'none',
-            gap: '30px',
-            alignItems: 'center',
-            margin: 0,
-            padding: 0
-          }}>
-            <li><Link href="/" style={{ textDecoration: 'none', color: '#475569', fontWeight: 600 }}>Accueil</Link></li>
-            <li><Link href="/tarifs" style={{ textDecoration: 'none', color: '#475569', fontWeight: 600 }}>Tarifs</Link></li>
-            <li>
-              <Link href="/login" style={{
-                background: '#6366f1',
-                color: 'white',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                fontWeight: 600
-              }}>
-                Se connecter
-              </Link>
-            </li>
-          </ul>
-        </nav>
-      </header>
-
-      {/* HERO SECTION */}
-      <main style={{
-        padding: '100px 20px',
-        textAlign: 'center',
-        background: 'radial-gradient(circle at top, #e0e7ff 0%, #f8fafc 100%)',
-        minHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center'
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: 800, color: '#0f172a', marginBottom: '20px', lineHeight: '1.1' }}>
-            Vendez plus vite grâce à <span style={{ color: '#6366f1' }}>l'Intelligence Artificielle</span>
-          </h1>
-          <p style={{ fontSize: '1.25rem', color: '#475569', marginBottom: '40px', maxWidth: '800px', marginLeft: 'auto', marginRight: 'auto' }}>
-            Rédigez vos fiches produits et déployez-les sur Amazon et Shopify en un clic.
-          </p>
-          <Link href="/login" style={{
-            background: '#6366f1',
-            color: 'white',
-            padding: '15px 30px',
-            borderRadius: '10px',
-            textDecoration: 'none',
-            fontWeight: 700,
-            fontSize: '1.1rem',
-            display: 'inline-block'
-          }}>
-            Démarrer gratuitement
-          </Link>
+    <div style={{ fontFamily: 'Inter, sans-serif', color: '#0f172a' }}>
+      <nav style={{ display: 'flex', justifyContent: 'space-between', padding: '25px 50px', alignItems: 'center' }}>
+        <div style={{ fontSize: '1.5rem', fontWeight: 950, letterSpacing: '-1.5px' }}>
+          KIPILOTE<span style={{ color: '#6366f1' }}>.</span>
         </div>
-      </main>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <button onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', fontWeight: 700, cursor: 'pointer', color: '#64748b' }}>Connexion</button>
+          <button onClick={() => router.push('/login')} style={{ background: '#6366f1', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>Essai Gratuit</button>
+        </div>
+      </nav>
+
+      <header style={{ textAlign: 'center', padding: '100px 20px' }}>
+        <h1 style={{ fontSize: '4rem', fontWeight: 950, letterSpacing: '-2px', marginBottom: '20px' }}>
+          Pilotez votre business avec une <span style={{ color: '#6366f1' }}>clarté absolue.</span>
+        </h1>
+        <p style={{ fontSize: '1.2rem', color: '#64748b', maxWidth: '600px', margin: '0 auto 40px auto' }}>
+          La solution de gestion tout-en-un pour vos stocks, vos ventes et vos équipes.
+        </p>
+        <button onClick={() => router.push('/login')} style={{ background: '#0f172a', color: 'white', border: 'none', padding: '20px 40px', borderRadius: '15px', fontSize: '1.1rem', fontWeight: 800, cursor: 'pointer' }}>
+          Démarrer maintenant
+        </button>
+      </header>
     </div>
   );
 }
