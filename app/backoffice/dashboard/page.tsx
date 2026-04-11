@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { supabase } from '../../utils/supabase';
 import { getDashboardStats } from '@/app/services/stats';
+import { getOrganisationId, isKipiloteStaff } from '@/app/types/auth';
+import { setActiveUniverse } from '@/app/utils/universeState';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
@@ -13,19 +15,23 @@ export default function DashboardPage() {
     const loadData = async () => {
       // 1. Récupération de la session
       const { data: { session } } = await supabase.auth.getSession();
-      
-      // 2. Vérification du mode infiltration
-      const impersonatedId = typeof window !== 'undefined' ? localStorage.getItem('impersonated_org_id') : null;
-      
-      if (session) {
-        setUser(session.user);
-        setIsInfiltration(!!impersonatedId);
 
-        // 3. Choix de l'organisation à charger
-        const orgIdToUse = impersonatedId || session.user.user_metadata.organisation_id;
-        
-        if (orgIdToUse) {
-          const data = await getDashboardStats(orgIdToUse);
+      if (session) {
+        if (isKipiloteStaff(session.user)) {
+          setActiveUniverse('hq');
+          if (typeof window !== 'undefined') {
+            window.location.assign('/hq/staff');
+          }
+          return;
+        }
+
+        setActiveUniverse('client');
+        setUser(session.user);
+        setIsInfiltration(false);
+
+        const organisationId = getOrganisationId(session.user);
+        if (organisationId) {
+          const data = await getDashboardStats(organisationId);
           setStats(data);
         }
       }
@@ -34,7 +40,7 @@ export default function DashboardPage() {
   }, []);
 
   // Styles réutilisables
-  const cardStyle = {
+  const cardStyle: CSSProperties = {
     background: '#FFFFFF',
     padding: '32px',
     borderRadius: '24px',
@@ -44,16 +50,16 @@ export default function DashboardPage() {
     transition: 'transform 0.2s ease'
   };
 
-  const labelStyle = {
+  const labelStyle: CSSProperties = {
     color: '#8E8E93',
     fontSize: '0.8rem',
     fontWeight: 700,
-    textTransform: 'uppercase' as const,
+    textTransform: 'uppercase',
     letterSpacing: '1px',
     marginBottom: '16px'
   };
 
-  const valueStyle = {
+  const valueStyle: CSSProperties = {
     fontSize: '2.8rem',
     fontWeight: 800,
     color: '#000'

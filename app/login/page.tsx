@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { useRouter } from 'next/navigation';
+import { isKipiloteStaff } from '@/app/types/auth';
+import { setActiveUniverse } from '@/app/utils/universeState';
 
 const isRefreshTokenError = (error: { message?: string; name?: string } | null) => {
   const rawMessage = `${error?.name ?? ''} ${error?.message ?? ''}`.toLowerCase();
@@ -22,6 +24,7 @@ export default function LoginPage() {
 
   const resetCorruptedSession = useCallback(async () => {
     localStorage.clear();
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
     await supabase.auth.signOut();
     setSessionExpiredMessage("Votre session a expiré, veuillez vous reconnecter.");
     router.replace('/login');
@@ -53,6 +56,7 @@ export default function LoginPage() {
 
     if (isLogin) {
       // --- CONNEXION CLASSIQUE CLIENT ---
+      await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
       const { error: signOutError } = await supabase.auth.signOut();
       if (isRefreshTokenError(signOutError)) {
         await resetCorruptedSession();
@@ -60,16 +64,62 @@ export default function LoginPage() {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data.session?.access_token) {
         if (isRefreshTokenError(error)) {
           await resetCorruptedSession();
           setIsLoading(false);
           return;
         }
 
-        alert("Erreur : " + error.message);
+        alert("Erreur : " + (error?.message || "Connexion impossible."));
       } else {
+        const bootstrapResponse = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            accessToken: data.session.access_token,
+          }),
+        });
+
+        if (!bootstrapResponse.ok) {
+          await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+          await supabase.auth.signOut();
+          alert("Session invalide. Reconnectez-vous.");
+          setIsLoading(false);
+          return;
+        }
+
+        const isHqStaff = isKipiloteStaff(data.user);
+        if (isHqStaff) {
+          const hqLoginResponse = await fetch("/api/hq/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              accessToken: data.session.access_token,
+            }),
+          });
+
+          if (!hqLoginResponse.ok) {
+            await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+            await supabase.auth.signOut();
+            alert("Acces HQ refuse.");
+            setIsLoading(false);
+            return;
+          }
+
+          setActiveUniverse("hq");
+          router.refresh();
+          router.push("/hq/staff");
+          setIsLoading(false);
+          return;
+        }
+
+        setActiveUniverse("client");
         router.refresh();
         router.push('/backoffice/dashboard');
       }

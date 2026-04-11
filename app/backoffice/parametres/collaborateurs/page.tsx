@@ -1,102 +1,255 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { supabase } from '../../../utils/supabase';
+
+import { useEffect, useState } from "react";
+import { supabase } from "../../../utils/supabase";
+import { getOrganisationId, isKipiloteStaff } from "@/app/types/auth";
+
+type CollaborateurRow = {
+  id: string;
+  organisation_id?: string | null;
+  nom?: string | null;
+  prenom?: string | null;
+  equipe?: string | null;
+  role?: string | null;
+};
 
 export default function CollaborateursPage() {
-  const [collabList, setCollabList] = useState<any[]>([]);
-  const [selectedCollab, setSelectedCollab] = useState<any | null>(null);
+  const [orgId, setOrgId] = useState<string>("");
+  const [collabList, setCollabList] = useState<CollaborateurRow[]>([]);
+  const [selectedCollab, setSelectedCollab] = useState<CollaborateurRow | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const loadData = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('organisation_id', session.user.user_metadata.organisation_id);
-      if (data) setCollabList(data);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session || isKipiloteStaff(session.user)) {
+      setCollabList([]);
+      return;
+    }
+
+    const sessionOrgId = getOrganisationId(session.user);
+    if (!sessionOrgId) {
+      setCollabList([]);
+      return;
+    }
+
+    setOrgId(sessionOrgId);
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("organisation_id", sessionOrgId)
+      .order("prenom", { ascending: true });
+
+    if (data) {
+      setCollabList(data as CollaborateurRow[]);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    void loadData();
+  }, []);
 
   const handleUpdate = async () => {
-    if (!selectedCollab) return;
+    if (!selectedCollab || !orgId) return;
     setLoading(true);
 
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update({
         nom: selectedCollab.nom,
         prenom: selectedCollab.prenom,
         equipe: selectedCollab.equipe,
-        role: selectedCollab.role
+        role: selectedCollab.role,
       })
-      .eq('id', selectedCollab.id);
+      .eq("id", selectedCollab.id)
+      .eq("organisation_id", orgId);
 
     if (error) alert("Erreur : " + error.message);
     else {
-      alert("Enregistré !");
+      alert("Enregistre.");
       setSelectedCollab(null);
-      loadData();
+      await loadData();
     }
     setLoading(false);
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-      {/* Liste à gauche */}
+    <div style={layoutStyle}>
       <div style={cardStyle}>
-        <h2 style={titleStyle}>Membres de l'organisation</h2>
+        <h2 style={titleStyle}>Membres de l organisation</h2>
         {collabList.length === 0 ? (
-           <p style={{color: '#94a3b8', fontSize: '0.9rem'}}>Aucun membre (table vide).</p>
+          <p style={emptyHintStyle}>Aucun membre (table vide).</p>
         ) : (
-          collabList.map(c => (
-            <div key={c.id} style={itemStyle}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800 }}>{c.prenom || ''} {c.nom || 'Sans nom'}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{c.role || 'Collaborateur'}</div>
+          collabList.map((collab) => (
+            <div key={collab.id} style={itemStyle}>
+              <div style={itemIdentityStyle}>
+                <div style={itemNameStyle}>
+                  {collab.prenom || ""} {collab.nom || "Sans nom"}
+                </div>
+                <div style={itemRoleStyle}>{collab.role || "Collaborateur"}</div>
               </div>
-              <div style={{ position: 'relative' }}>
-                <button onClick={() => setActiveMenu(activeMenu === c.id ? null : c.id)} style={burgerBtn}>⋮</button>
-                {activeMenu === c.id && (
+              <div style={menuWrapStyle}>
+                <button onClick={() => setActiveMenu(activeMenu === collab.id ? null : collab.id)} style={burgerButtonStyle}>
+                  ⋮
+                </button>
+                {activeMenu === collab.id ? (
                   <div style={dropdownStyle}>
-                    <div style={dropdownItem} onClick={() => { setSelectedCollab(c); setActiveMenu(null); }}>Modifier</div>
+                    <div
+                      style={dropdownItemStyle}
+                      onClick={() => {
+                        setSelectedCollab(collab);
+                        setActiveMenu(null);
+                      }}
+                    >
+                      Modifier
+                    </div>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           ))
         )}
       </div>
 
-      {/* Édition à droite */}
       <div style={cardStyle}>
-        <h2 style={titleStyle}>Détails du profil</h2>
+        <h2 style={titleStyle}>Details du profil</h2>
         {selectedCollab ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <input style={inS} value={selectedCollab.prenom || ''} onChange={e => setSelectedCollab({...selectedCollab, prenom: e.target.value})} placeholder="Prénom" />
-            <input style={inS} value={selectedCollab.nom || ''} onChange={e => setSelectedCollab({...selectedCollab, nom: e.target.value})} placeholder="Nom" />
-            <input style={inS} value={selectedCollab.equipe || ''} onChange={e => setSelectedCollab({...selectedCollab, equipe: e.target.value})} placeholder="Équipe" />
-            <button onClick={handleUpdate} disabled={loading} style={btnStyle}>
-              {loading ? 'Enregistrement...' : 'Sauvegarder'}
+          <div style={formStyle}>
+            <input
+              style={inputStyle}
+              value={selectedCollab.prenom || ""}
+              onChange={(event) => setSelectedCollab({ ...selectedCollab, prenom: event.target.value })}
+              placeholder="Prenom"
+            />
+            <input
+              style={inputStyle}
+              value={selectedCollab.nom || ""}
+              onChange={(event) => setSelectedCollab({ ...selectedCollab, nom: event.target.value })}
+              placeholder="Nom"
+            />
+            <input
+              style={inputStyle}
+              value={selectedCollab.equipe || ""}
+              onChange={(event) => setSelectedCollab({ ...selectedCollab, equipe: event.target.value })}
+              placeholder="Equipe"
+            />
+            <button onClick={handleUpdate} disabled={loading} style={saveButtonStyle}>
+              {loading ? "Enregistrement..." : "Sauvegarder"}
             </button>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '50px' }}>Sélectionnez "Modifier" via le menu ⋮</div>
+          <div style={emptyStateStyle}>Selectionnez "Modifier" via le menu ⋮</div>
         )}
       </div>
     </div>
   );
 }
 
-// Styles
-const cardStyle = { background: 'white', padding: '25px', borderRadius: '15px', border: '1px solid #e2e8f0' };
-const titleStyle = { fontSize: '1rem', fontWeight: 900, marginBottom: '20px' };
-const itemStyle = { display: 'flex', alignItems: 'center', padding: '12px', background: '#f8fafc', borderRadius: '10px', marginBottom: '8px' };
-const burgerBtn = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' };
-const dropdownStyle = { position: 'absolute' as any, right: 0, top: '25px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', zIndex: 10, minWidth: '100px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' };
-const dropdownItem = { padding: '10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 };
-const inS = { padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none' };
-const btnStyle = { background: '#6366f1', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' };
+const layoutStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "20px",
+};
+
+const cardStyle: React.CSSProperties = {
+  background: "white",
+  padding: "25px",
+  borderRadius: "15px",
+  border: "1px solid #e2e8f0",
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: "1rem",
+  fontWeight: 900,
+  marginBottom: "20px",
+};
+
+const emptyHintStyle: React.CSSProperties = {
+  color: "#94a3b8",
+  fontSize: "0.9rem",
+};
+
+const itemStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  padding: "12px",
+  background: "#f8fafc",
+  borderRadius: "10px",
+  marginBottom: "8px",
+};
+
+const itemIdentityStyle: React.CSSProperties = {
+  flex: 1,
+};
+
+const itemNameStyle: React.CSSProperties = {
+  fontWeight: 800,
+};
+
+const itemRoleStyle: React.CSSProperties = {
+  fontSize: "0.8rem",
+  color: "#64748b",
+};
+
+const menuWrapStyle: React.CSSProperties = {
+  position: "relative",
+};
+
+const burgerButtonStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  fontSize: "1.2rem",
+};
+
+const dropdownStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 0,
+  top: "25px",
+  background: "white",
+  border: "1px solid #e2e8f0",
+  borderRadius: "8px",
+  zIndex: 10,
+  minWidth: "100px",
+  boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+};
+
+const dropdownItemStyle: React.CSSProperties = {
+  padding: "10px",
+  cursor: "pointer",
+  fontSize: "0.8rem",
+  fontWeight: 700,
+};
+
+const formStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "15px",
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: "10px",
+  borderRadius: "8px",
+  border: "1px solid #e2e8f0",
+  outline: "none",
+};
+
+const saveButtonStyle: React.CSSProperties = {
+  background: "#6366f1",
+  color: "white",
+  border: "none",
+  padding: "12px",
+  borderRadius: "8px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const emptyStateStyle: React.CSSProperties = {
+  textAlign: "center",
+  color: "#94a3b8",
+  marginTop: "50px",
+};

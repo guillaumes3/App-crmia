@@ -1,7 +1,9 @@
 "use client";
 
 import { CSSProperties, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/app/utils/supabase";
+import { supabase } from "@/utils/supabase";
+import { getOrganisationId, isKipiloteStaff } from "@/app/types/auth";
+import { setActiveUniverse } from "@/app/utils/universeState";
 
 type DateFilter = "today" | "7d" | "30d";
 type ChannelFilter = "Tous" | "Amazon" | "Shopify" | "Comptoir";
@@ -42,6 +44,7 @@ const currencyFormatter = new Intl.NumberFormat("fr-FR", {
 });
 
 export default function VentesPage() {
+  const [organisationId, setOrganisationId] = useState<string>("");
   const [ventes, setVentes] = useState<VenteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -50,12 +53,26 @@ export default function VentesPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("30d");
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>("Tous");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [showFilters, setShowFilters] = useState(true);
 
   const [selectedVenteId, setSelectedVenteId] = useState<string | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [menuVenteId, setMenuVenteId] = useState<string | null>(null);
   const [venteItems, setVenteItems] = useState<VenteItemRow[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemsError, setItemsError] = useState<string | null>(null);
+
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
+
+  useEffect(() => {
+    const syncLayout = () => setIsCompactLayout(window.innerWidth < 1024);
+    syncLayout();
+    window.addEventListener("resize", syncLayout);
+    return () => {
+      window.removeEventListener("resize", syncLayout);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,9 +82,31 @@ export default function VentesPage() {
       setLoadingError(null);
 
       try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          throw new Error("Session introuvable.");
+        }
+
+        if (isKipiloteStaff(session.user)) {
+          setActiveUniverse("hq");
+          throw new Error("Acces staff HQ interdit sur le backoffice client.");
+        }
+
+        setActiveUniverse("client");
+        const orgId = getOrganisationId(session.user);
+        if (!orgId) {
+          throw new Error("organisation_id manquant dans la session.");
+        }
+
+        setOrganisationId(orgId);
+
         const dataWithCanal = await supabase
           .from("ventes")
           .select("id, date_vente, montant_ht, montant_ttc, statut, vendeur_id, canal")
+          .eq("organisation_id", orgId)
           .order("date_vente", { ascending: false });
 
         let ventesData = dataWithCanal.data as VenteDbRow[] | null;
@@ -77,6 +116,7 @@ export default function VentesPage() {
           const dataFallback = await supabase
             .from("ventes")
             .select("id, date_vente, montant_ht, montant_ttc, statut, vendeur_id")
+            .eq("organisation_id", orgId)
             .order("date_vente", { ascending: false });
 
           ventesData = dataFallback.data as VenteDbRow[] | null;
@@ -95,6 +135,7 @@ export default function VentesPage() {
           const { data: profilesData, error: profilesError } = await supabase
             .from("profiles")
             .select("id, prenom, nom")
+            .eq("organisation_id", orgId)
             .in("id", sellerIds);
 
           if (!profilesError && profilesData) {
@@ -120,6 +161,12 @@ export default function VentesPage() {
 
         if (!isMounted) return;
         setVentes(mapped);
+        setSelectedVenteId((current) => {
+          if (current && mapped.some((vente) => vente.id === current)) {
+            return current;
+          }
+          return mapped[0]?.id ?? null;
+        });
       } catch (error) {
         if (!isMounted) return;
         setLoadingError(getErrorMessage(error));
@@ -138,7 +185,10 @@ export default function VentesPage() {
   }, []);
 
   useEffect(() => {
-    if (!isDrawerOpen || !selectedVenteId) return;
+    if (!selectedVenteId || !organisationId) {
+      setVenteItems([]);
+      return;
+    }
 
     let isMounted = true;
 
@@ -147,7 +197,11 @@ export default function VentesPage() {
       setItemsError(null);
 
       try {
-        const { data, error } = await supabase.from("vente_items").select("*").eq("vente_id", selectedVenteId);
+        const { data, error } = await supabase
+          .from("vente_items")
+          .select("*")
+          .eq("organisation_id", organisationId)
+          .eq("vente_id", selectedVenteId);
         if (error) {
           throw error;
         }
@@ -168,7 +222,7 @@ export default function VentesPage() {
     return () => {
       isMounted = false;
     };
-  }, [isDrawerOpen, selectedVenteId]);
+  }, [organisationId, selectedVenteId]);
 
   const filteredVentes = useMemo(() => {
     const threshold = getDateThreshold(dateFilter);
@@ -230,191 +284,292 @@ export default function VentesPage() {
   }, [channelFilter, dateFilter, ventes]);
 
   const selectedVente = useMemo(() => {
-    return ventes.find((vente) => vente.id === selectedVenteId) ?? null;
-  }, [selectedVenteId, ventes]);
+    return sortedVentes.find((vente) => vente.id === selectedVenteId) ?? sortedVentes[0] ?? null;
+  }, [selectedVenteId, sortedVentes]);
 
-  const openDrawer = (venteId: string) => {
-    setSelectedVenteId(venteId);
-    setIsDrawerOpen(true);
+  const handleExportCsv = () => {
+    if (sortedVentes.length === 0) {
+      return;
+    }
+
+    const header = ["id", "date_vente", "canal", "vendeur", "statut", "montant_ttc"];
+    const lines = sortedVentes.map((vente) => {
+      return [vente.id, vente.dateVente, vente.canal, vente.vendeurNom, vente.statut, String(vente.montantTtc)]
+        .map((cell) => `"${cell.replace(/"/g, '""')}"`)
+        .join(",");
+    });
+
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "ventes.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
+
+  const handleDeleteVente = async (id: string) => {
+    const confirmed = confirm("Supprimer cette vente ?");
+    if (!confirmed) {
+      return;
+    }
+
+    if (!organisationId) {
+      setActionError("Organisation introuvable.");
+      return;
+    }
+
+    const { error } = await supabase.from("ventes").delete().eq("id", id).eq("organisation_id", organisationId);
+    if (error) {
+      setActionError(error.message);
+      return;
+    }
+
+    setVentes((current) => current.filter((vente) => vente.id !== id));
+    setMenuVenteId(null);
+    setInfoMessage("Vente supprimee.");
+    setSelectedVenteId((current) => (current === id ? null : current));
+  };
+
+  if (loading) {
+    return <section style={feedbackCardStyle}>Chargement des ventes...</section>;
+  }
+
+  if (loadingError) {
+    return <section style={{ ...feedbackCardStyle, ...warningBannerStyle }}>Erreur: {loadingError}</section>;
+  }
 
   return (
     <div style={pageStyle}>
-      <header style={headerStyle}>
+      <header style={pageHeaderStyle}>
         <div>
-          <h1 style={titleStyle}>Pilotage des revenus</h1>
-          <p style={descriptionStyle}>
-            Centralisez les transactions, suivez la performance multi-canal et ouvrez le détail des ventes sans quitter le tableau.
-          </p>
+          <h1 style={pageTitleStyle}>Ventes</h1>
+          <p style={pageSubtitleStyle}>Transactions multi-canales, performance et detail ligne par ligne.</p>
         </div>
-        <button type="button" style={primaryButtonStyle}>
-          + Nouvelle Vente
-        </button>
-      </header>
 
-      <section style={kpiGridStyle}>
-        <article style={kpiCardStyle}>
-          <span style={kpiLabelStyle}>Chiffre d affaires total (TTC)</span>
-          <strong style={kpiValueStyle}>{currencyFormatter.format(kpis.totalRevenue)}</strong>
-        </article>
-        <article style={kpiCardStyle}>
-          <span style={kpiLabelStyle}>Nombre de transactions</span>
-          <strong style={kpiValueStyle}>{kpis.transactions}</strong>
-        </article>
-        <article style={kpiCardStyle}>
-          <span style={kpiLabelStyle}>Panier moyen</span>
-          <strong style={kpiValueStyle}>{currencyFormatter.format(kpis.averageBasket)}</strong>
-        </article>
-        <article style={kpiCardStyle}>
-          <span style={kpiLabelStyle}>Taux de croissance</span>
-          <strong style={{ ...kpiValueStyle, color: kpis.growthRate >= 0 ? "#0f766e" : "#b91c1c" }}>{formatPercent(kpis.growthRate)}</strong>
-        </article>
-      </section>
-
-      <section style={filtersCardStyle}>
-        <label style={filterControlStyle}>
-          <span style={filterLabelStyle}>Recherche transaction</span>
-          <input
-            type="text"
-            value={searchId}
-            onChange={(event) => setSearchId(event.target.value)}
-            placeholder="Ex: 3f0e8a9b"
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={filterControlStyle}>
-          <span style={filterLabelStyle}>Periode</span>
-          <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as DateFilter)} style={inputStyle}>
-            <option value="today">Aujourd hui</option>
-            <option value="7d">7 derniers jours</option>
-            <option value="30d">30 derniers jours</option>
-          </select>
-        </label>
-
-        <label style={filterControlStyle}>
-          <span style={filterLabelStyle}>Canal</span>
-          <select value={channelFilter} onChange={(event) => setChannelFilter(event.target.value as ChannelFilter)} style={inputStyle}>
-            <option value="Tous">Tous</option>
-            <option value="Amazon">Amazon</option>
-            <option value="Shopify">Shopify</option>
-            <option value="Comptoir">Comptoir</option>
-          </select>
-        </label>
-      </section>
-
-      <section style={tableCardStyle}>
-        <div style={tableHeaderStyle}>
-          <h2 style={tableTitleStyle}>Transactions</h2>
-          <button type="button" style={sortButtonStyle} onClick={() => setSortDirection((current) => (current === "desc" ? "asc" : "desc"))}>
-            Trier par date: {sortDirection === "desc" ? "Plus recentes" : "Plus anciennes"}
+        <div style={headerActionsStyle}>
+          <button
+            type="button"
+            style={{ ...secondaryButtonStyle, ...(showFilters ? secondaryButtonActiveStyle : {}) }}
+            onClick={() => setShowFilters((current) => !current)}
+          >
+            Filtres
+          </button>
+          <button type="button" style={secondaryButtonStyle} onClick={handleExportCsv}>
+            Export
+          </button>
+          <button
+            type="button"
+            style={primaryButtonStyle}
+            onClick={() => setInfoMessage("Creation manuelle disponible via le flux de caisse.")}
+          >
+            Import / Ajouter
           </button>
         </div>
+      </header>
 
-        <div style={tableOverflowStyle}>
-          <table style={tableStyle}>
-            <thead>
-              <tr style={tableHeaderRowStyle}>
-                <th style={thStyle}>Date</th>
-                <th style={thStyle}>ID Transaction</th>
-                <th style={thStyle}>Canal</th>
-                <th style={thStyle}>Vendeur</th>
-                <th style={thStyle}>Statut</th>
-                <th style={thStyle}>Montant TTC</th>
-                <th style={thStyle}>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} style={feedbackCellStyle}>
-                    Chargement des ventes...
-                  </td>
-                </tr>
-              ) : loadingError ? (
-                <tr>
-                  <td colSpan={7} style={{ ...feedbackCellStyle, color: "#b91c1c" }}>
-                    {loadingError}
-                  </td>
-                </tr>
-              ) : sortedVentes.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={feedbackCellStyle}>
-                    Aucune transaction ne correspond aux filtres actifs.
-                  </td>
-                </tr>
-              ) : (
-                sortedVentes.map((vente) => (
-                  <tr key={vente.id} style={tableRowStyle}>
-                    <td style={tdStyle}>{formatDate(vente.dateVente)}</td>
-                    <td style={tdStyle}>
-                      <code style={codeTagStyle}>{truncateId(vente.id)}</code>
-                    </td>
-                    <td style={tdStyle}>{vente.canal}</td>
-                    <td style={tdStyle}>{vente.vendeurNom}</td>
-                    <td style={tdStyle}>
+      {infoMessage ? <div style={successBannerStyle}>{infoMessage}</div> : null}
+      {actionError ? <div style={warningBannerStyle}>{actionError}</div> : null}
+
+      <div style={summaryGridStyle}>
+        <article style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>CA TTC</span>
+          <strong style={summaryValueStyle}>{currencyFormatter.format(kpis.totalRevenue)}</strong>
+        </article>
+        <article style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Transactions</span>
+          <strong style={summaryValueStyle}>{kpis.transactions}</strong>
+        </article>
+        <article style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Panier moyen</span>
+          <strong style={summaryValueStyle}>{currencyFormatter.format(kpis.averageBasket)}</strong>
+        </article>
+        <article style={summaryCardStyle}>
+          <span style={summaryLabelStyle}>Croissance</span>
+          <strong style={{ ...summaryValueStyle, color: kpis.growthRate >= 0 ? palette.mintText : palette.salmonText }}>{formatPercent(kpis.growthRate)}</strong>
+        </article>
+      </div>
+
+      <div style={getDualPaneStyle(isCompactLayout)}>
+        <section style={leftPaneStyle}>
+          <div style={cardHeaderStyle}>
+            <div style={cardHeadingWrapStyle}>
+              <h2 style={cardTitleStyle}>Transactions</h2>
+              <span style={countBadgeStyle}>{sortedVentes.length}</span>
+            </div>
+            <button
+              type="button"
+              style={smallPrimaryButtonStyle}
+              onClick={() => setSortDirection((current) => (current === "desc" ? "asc" : "desc"))}
+            >
+              Trier
+            </button>
+          </div>
+
+          {showFilters ? (
+            <div style={filtersCardStyle}>
+              <input
+                type="text"
+                value={searchId}
+                onChange={(event) => setSearchId(event.target.value)}
+                placeholder="Recherche ID transaction"
+                style={fieldInputStyle}
+              />
+
+              <div style={filtersRowStyle}>
+                <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as DateFilter)} style={fieldInputStyle}>
+                  <option value="today">Aujourd hui</option>
+                  <option value="7d">7 derniers jours</option>
+                  <option value="30d">30 derniers jours</option>
+                </select>
+                <select value={channelFilter} onChange={(event) => setChannelFilter(event.target.value as ChannelFilter)} style={fieldInputStyle}>
+                  <option value="Tous">Tous</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Shopify">Shopify</option>
+                  <option value="Comptoir">Comptoir</option>
+                </select>
+              </div>
+            </div>
+          ) : null}
+
+          <div style={listWrapStyle}>
+            {sortedVentes.length === 0 ? (
+              <div style={emptyStateStyle}>Aucune transaction ne correspond aux filtres actifs.</div>
+            ) : (
+              sortedVentes.map((vente) => {
+                const isSelected = vente.id === selectedVente?.id;
+
+                return (
+                  <article key={vente.id} style={getListItemStyle(isSelected)}>
+                    <button
+                      type="button"
+                      style={itemContentButtonStyle}
+                      onClick={() => {
+                        setSelectedVenteId(vente.id);
+                        setMenuVenteId(null);
+                      }}
+                    >
+                      <strong style={itemTitleStyle}>{truncateId(vente.id)}</strong>
+                      <span style={itemMetaStyle}>{formatDate(vente.dateVente)}</span>
+                      <span style={itemMetaStyle}>{currencyFormatter.format(vente.montantTtc)}</span>
+                    </button>
+
+                    <div style={itemRightWrapStyle}>
                       <span style={getStatusTagStyle(vente.statut)}>{vente.statut}</span>
-                    </td>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>{currencyFormatter.format(vente.montantTtc)}</td>
-                    <td style={tdStyle}>
-                      <button type="button" style={detailButtonStyle} onClick={() => openDrawer(vente.id)}>
-                        Ouvrir
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
-      {isDrawerOpen ? (
-        <div style={drawerOverlayStyle} onClick={() => setIsDrawerOpen(false)}>
-          <aside style={drawerPanelStyle} onClick={(event) => event.stopPropagation()}>
-            <div style={drawerHeaderStyle}>
-              <div>
-                <h3 style={drawerTitleStyle}>Detail de la vente</h3>
-                <p style={drawerSubtitleStyle}>{selectedVente ? truncateId(selectedVente.id) : "Transaction"}</p>
-              </div>
-              <button type="button" style={closeButtonStyle} onClick={() => setIsDrawerOpen(false)}>
-                Fermer
-              </button>
-            </div>
-
-            <div style={drawerContentStyle}>
-              {itemsLoading ? (
-                <p style={drawerHintStyle}>Chargement des articles...</p>
-              ) : itemsError ? (
-                <p style={{ ...drawerHintStyle, color: "#b91c1c" }}>{itemsError}</p>
-              ) : venteItems.length === 0 ? (
-                <p style={drawerHintStyle}>Aucun article trouve pour cette vente.</p>
-              ) : (
-                venteItems.map((item, index) => {
-                  const quantity = getNumericValue(item, ["quantite", "quantity", "qty"]);
-                  const unitPrice = getNumericValue(item, ["prix_unitaire_ht", "prix_unitaire", "unit_price", "price"]);
-                  const total = getNumericValue(item, ["total_ht", "total_ttc", "total"]);
-
-                  return (
-                    <article key={String(item.id ?? `${selectedVenteId}-${index}`)} style={itemCardStyle}>
-                      <strong style={itemTitleStyle}>{getItemTitle(item, index)}</strong>
-                      <div style={itemMetaStyle}>
-                        <span>Quantite: {quantity ?? "-"}</span>
-                        <span>PU: {unitPrice !== null ? currencyFormatter.format(unitPrice) : "-"}</span>
-                        <span>Total: {total !== null ? currencyFormatter.format(total) : "-"}</span>
+                      <div style={menuWrapStyle}>
+                        <button
+                          type="button"
+                          style={menuButtonStyle}
+                          onClick={() => setMenuVenteId((current) => (current === vente.id ? null : vente.id))}
+                        >
+                          ⋮
+                        </button>
+                        {menuVenteId === vente.id ? (
+                          <div style={menuPopoverStyle}>
+                            <button
+                              type="button"
+                              style={menuActionStyle}
+                              onClick={() => {
+                                setSelectedVenteId(vente.id);
+                                setMenuVenteId(null);
+                              }}
+                            >
+                              Details
+                            </button>
+                            <button
+                              type="button"
+                              style={menuActionStyle}
+                              onClick={() => {
+                                setSelectedVenteId(vente.id);
+                                setMenuVenteId(null);
+                                setInfoMessage("Edition disponible sur le workflow caisse.");
+                              }}
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              type="button"
+                              style={menuDangerActionStyle}
+                              onClick={() => void handleDeleteVente(vente.id)}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                    </article>
-                  );
-                })
-              )}
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
 
-              <div style={drawerPlaceholderStyle}>
-                Emplacement pret pour enrichir le panneau (remises, taxes, marges, historique d actions).
+        <section style={rightPaneStyle}>
+          {selectedVente ? (
+            <article style={detailCardStyle}>
+              <div style={detailHeaderStyle}>
+                <div>
+                  <h2 style={detailTitleStyle}>Vente {truncateId(selectedVente.id)}</h2>
+                  <p style={detailSubtitleStyle}>{formatDate(selectedVente.dateVente)}</p>
+                </div>
+                <span style={getStatusTagStyle(selectedVente.statut)}>{selectedVente.statut}</span>
               </div>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+
+              <div style={detailKpiGridStyle}>
+                <div style={detailKpiCardStyle}>
+                  <span style={detailKpiLabelStyle}>Canal</span>
+                  <strong style={detailKpiValueStyle}>{selectedVente.canal}</strong>
+                </div>
+                <div style={detailKpiCardStyle}>
+                  <span style={detailKpiLabelStyle}>Vendeur</span>
+                  <strong style={detailKpiValueStyle}>{selectedVente.vendeurNom}</strong>
+                </div>
+                <div style={detailKpiCardStyle}>
+                  <span style={detailKpiLabelStyle}>Montant HT</span>
+                  <strong style={detailKpiValueStyle}>{currencyFormatter.format(selectedVente.montantHt)}</strong>
+                </div>
+                <div style={detailKpiCardStyle}>
+                  <span style={detailKpiLabelStyle}>Montant TTC</span>
+                  <strong style={detailKpiValueStyle}>{currencyFormatter.format(selectedVente.montantTtc)}</strong>
+                </div>
+              </div>
+
+              <div style={itemsCardStyle}>
+                <h3 style={itemsTitleStyle}>Articles de la vente</h3>
+                {itemsLoading ? (
+                  <p style={itemsHintStyle}>Chargement des articles...</p>
+                ) : itemsError ? (
+                  <p style={{ ...itemsHintStyle, color: palette.salmonText }}>{itemsError}</p>
+                ) : venteItems.length === 0 ? (
+                  <p style={itemsHintStyle}>Aucun article trouve pour cette vente.</p>
+                ) : (
+                  <div style={itemsListStyle}>
+                    {venteItems.map((item, index) => {
+                      const quantity = getNumericValue(item, ["quantite", "quantity", "qty"]);
+                      const unitPrice = getNumericValue(item, ["prix_unitaire_ht", "prix_unitaire", "unit_price", "price"]);
+                      const total = getNumericValue(item, ["total_ht", "total_ttc", "total"]);
+
+                      return (
+                        <article key={String(item.id ?? `${selectedVenteId}-${index}`)} style={itemRowCardStyle}>
+                          <strong style={itemRowTitleStyle}>{getItemTitle(item, index)}</strong>
+                          <span style={itemRowMetaStyle}>Quantite: {quantity ?? "-"}</span>
+                          <span style={itemRowMetaStyle}>PU: {unitPrice !== null ? currencyFormatter.format(unitPrice) : "-"}</span>
+                          <span style={itemRowMetaStyle}>Total: {total !== null ? currencyFormatter.format(total) : "-"}</span>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </article>
+          ) : (
+            <div style={emptyStateStyle}>Selectionnez une transaction a gauche.</div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
@@ -494,6 +649,7 @@ function getStatusTagStyle(status: string): CSSProperties {
     borderRadius: "999px",
     fontSize: "0.75rem",
     fontWeight: 700,
+    whiteSpace: "nowrap",
   };
 
   if (
@@ -502,7 +658,7 @@ function getStatusTagStyle(status: string): CSSProperties {
     normalized.includes("termine") ||
     normalized.includes("livre")
   ) {
-    return { ...base, backgroundColor: "#dcfce7", color: "#166534" };
+    return { ...base, backgroundColor: "#d1fae5", color: "#065f46" };
   }
 
   if (normalized.includes("attente") || normalized.includes("pending")) {
@@ -510,7 +666,7 @@ function getStatusTagStyle(status: string): CSSProperties {
   }
 
   if (normalized.includes("annul") || normalized.includes("refus")) {
-    return { ...base, backgroundColor: "#fee2e2", color: "#991b1b" };
+    return { ...base, backgroundColor: "#ffe4e6", color: "#9f1239" };
   }
 
   return { ...base, backgroundColor: "#e2e8f0", color: "#334155" };
@@ -537,301 +693,467 @@ function getItemTitle(item: VenteItemRow, index: number): string {
   return `Article ${index + 1}`;
 }
 
+const palette = {
+  white: "#ffffff",
+  slate900: "#0f172a",
+  slate700: "#334155",
+  slate500: "#64748b",
+  slate300: "#cbd5e1",
+  slate200: "#e2e8f0",
+  indigoSoft: "#e0e7ff",
+  indigoMain: "#6366f1",
+  indigoDark: "#4338ca",
+  mintSoft: "#d1fae5",
+  mintText: "#065f46",
+  salmonSoft: "#ffe4e6",
+  salmonText: "#9f1239",
+};
+
 const pageStyle: CSSProperties = {
-  fontFamily: '"Inter", "Geist", sans-serif',
-  color: "#0f172a",
-  display: "grid",
-  gap: "1.5rem",
-};
-
-const headerStyle: CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #e2e8f0",
-  borderRadius: "20px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
-  padding: "1.5rem 1.75rem",
   display: "flex",
-  flexWrap: "wrap",
+  flexDirection: "column",
+  gap: "16px",
+};
+
+const pageHeaderStyle: CSSProperties = {
+  display: "flex",
   justifyContent: "space-between",
-  gap: "1rem",
-  alignItems: "center",
+  alignItems: "flex-start",
+  gap: "12px",
+  flexWrap: "wrap",
+  background: palette.white,
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  padding: "18px",
 };
 
-const titleStyle: CSSProperties = {
-  fontSize: "1.8rem",
-  lineHeight: 1.15,
-  letterSpacing: "-0.02em",
-  fontWeight: 700,
+const pageTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "1.45rem",
+  fontWeight: 800,
+  color: palette.slate900,
 };
 
-const descriptionStyle: CSSProperties = {
-  marginTop: "0.5rem",
-  color: "#475569",
-  maxWidth: "62ch",
+const pageSubtitleStyle: CSSProperties = {
+  margin: "6px 0 0",
+  color: palette.slate500,
+  fontSize: "0.9rem",
+};
+
+const headerActionsStyle: CSSProperties = {
+  display: "flex",
+  gap: "10px",
+  flexWrap: "wrap",
 };
 
 const primaryButtonStyle: CSSProperties = {
-  backgroundColor: "#6366f1",
-  color: "#ffffff",
   border: "none",
-  borderRadius: "16px",
-  height: "46px",
-  padding: "0 1.25rem",
+  background: palette.indigoMain,
+  color: palette.white,
+  borderRadius: "12px",
+  padding: "10px 14px",
+  fontWeight: 800,
+  cursor: "pointer",
+  fontSize: "0.85rem",
+};
+
+const smallPrimaryButtonStyle: CSSProperties = {
+  border: "none",
+  background: palette.indigoMain,
+  color: palette.white,
+  borderRadius: "12px",
+  padding: "8px 12px",
+  fontWeight: 800,
+  cursor: "pointer",
+  fontSize: "0.8rem",
+};
+
+const secondaryButtonStyle: CSSProperties = {
+  border: `1px solid ${palette.slate300}`,
+  background: palette.white,
+  color: palette.slate700,
+  borderRadius: "12px",
+  padding: "10px 14px",
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 8px 20px rgba(99, 102, 241, 0.24)",
+  fontSize: "0.85rem",
 };
 
-const kpiGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "1rem",
+const secondaryButtonActiveStyle: CSSProperties = {
+  border: `1px solid ${palette.indigoMain}`,
+  color: palette.indigoDark,
+  background: palette.indigoSoft,
 };
 
-const kpiCardStyle: CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #e2e8f0",
+const successBannerStyle: CSSProperties = {
+  background: palette.mintSoft,
+  color: palette.mintText,
+  border: "1px solid #a7f3d0",
   borderRadius: "20px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
-  padding: "1.25rem",
-  display: "grid",
-  gap: "0.45rem",
+  padding: "10px 12px",
+  fontWeight: 700,
+  fontSize: "0.85rem",
 };
 
-const kpiLabelStyle: CSSProperties = {
-  color: "#64748b",
-  fontSize: "0.78rem",
+const warningBannerStyle: CSSProperties = {
+  background: palette.salmonSoft,
+  color: palette.salmonText,
+  border: "1px solid #fecdd3",
+  borderRadius: "20px",
+  padding: "10px 12px",
+  fontWeight: 700,
+  fontSize: "0.85rem",
+};
+
+const feedbackCardStyle: CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: palette.white,
+  padding: "16px",
+  color: palette.slate500,
+  fontWeight: 700,
+};
+
+const summaryGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "10px",
+};
+
+const summaryCardStyle: CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: palette.white,
+  padding: "12px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+};
+
+const summaryLabelStyle: CSSProperties = {
+  color: palette.slate500,
+  fontSize: "0.74rem",
   fontWeight: 700,
   textTransform: "uppercase",
-  letterSpacing: "0.06em",
+  letterSpacing: "0.04em",
 };
 
-const kpiValueStyle: CSSProperties = {
-  fontSize: "1.45rem",
-  fontWeight: 700,
+const summaryValueStyle: CSSProperties = {
+  color: palette.slate900,
+  fontSize: "1.06rem",
+  fontWeight: 800,
+};
+
+const getDualPaneStyle = (compact: boolean): CSSProperties => ({
+  display: "flex",
+  flexDirection: compact ? "column" : "row",
+  gap: "16px",
+});
+
+const leftPaneStyle: CSSProperties = {
+  flex: "0 0 40%",
+  minWidth: 0,
+  background: palette.white,
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  padding: "16px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const rightPaneStyle: CSSProperties = {
+  flex: "1 1 60%",
+  minWidth: 0,
+  background: palette.white,
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  padding: "16px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const cardHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "10px",
+};
+
+const cardHeadingWrapStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const cardTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "1.03rem",
+  fontWeight: 800,
+  color: palette.slate900,
+};
+
+const countBadgeStyle: CSSProperties = {
+  minWidth: "28px",
+  height: "28px",
+  borderRadius: "14px",
+  background: palette.indigoSoft,
+  color: palette.indigoDark,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  padding: "0 8px",
 };
 
 const filtersCardStyle: CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #e2e8f0",
+  border: `1px solid ${palette.slate200}`,
   borderRadius: "20px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
-  padding: "1.1rem",
+  padding: "10px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+  background: "#f8fafc",
+};
+
+const filtersRowStyle: CSSProperties = {
   display: "grid",
-  gap: "0.9rem",
-  gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: "8px",
 };
 
-const filterControlStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.45rem",
-};
-
-const filterLabelStyle: CSSProperties = {
-  color: "#64748b",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-};
-
-const inputStyle: CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #cbd5e1",
-  color: "#0f172a",
-  borderRadius: "14px",
-  padding: "0.7rem 0.9rem",
-  fontSize: "0.95rem",
+const fieldInputStyle: CSSProperties = {
+  border: `1px solid ${palette.slate300}`,
+  borderRadius: "12px",
+  padding: "10px 12px",
+  fontSize: "0.88rem",
+  color: palette.slate900,
+  background: palette.white,
   outline: "none",
 };
 
-const tableCardStyle: CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #e2e8f0",
-  borderRadius: "20px",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
-  overflow: "hidden",
-};
-
-const tableHeaderStyle: CSSProperties = {
-  padding: "1rem 1.25rem",
-  borderBottom: "1px solid #e2e8f0",
+const listWrapStyle: CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.75rem",
-  flexWrap: "wrap",
-};
-
-const tableTitleStyle: CSSProperties = {
-  fontSize: "1rem",
-  fontWeight: 700,
-};
-
-const sortButtonStyle: CSSProperties = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "12px",
-  background: "#ffffff",
-  color: "#0f172a",
-  padding: "0.5rem 0.75rem",
-  fontSize: "0.82rem",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const tableOverflowStyle: CSSProperties = {
-  overflowX: "auto",
-};
-
-const tableStyle: CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "840px",
-};
-
-const tableHeaderRowStyle: CSSProperties = {
-  backgroundColor: "#f8fafc",
-};
-
-const thStyle: CSSProperties = {
-  textAlign: "left",
-  padding: "0.9rem 1rem",
-  color: "#64748b",
-  fontSize: "0.74rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  fontWeight: 700,
-  borderBottom: "1px solid #e2e8f0",
-};
-
-const tableRowStyle: CSSProperties = {
-  borderBottom: "1px solid #f1f5f9",
-};
-
-const tdStyle: CSSProperties = {
-  padding: "0.9rem 1rem",
-  fontSize: "0.9rem",
-  color: "#0f172a",
-};
-
-const codeTagStyle: CSSProperties = {
-  display: "inline-block",
-  padding: "0.24rem 0.5rem",
-  borderRadius: "10px",
-  backgroundColor: "#eef2ff",
-  color: "#4338ca",
-  fontWeight: 700,
-  fontSize: "0.78rem",
-};
-
-const detailButtonStyle: CSSProperties = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "12px",
-  backgroundColor: "#ffffff",
-  color: "#0f172a",
-  fontWeight: 600,
-  fontSize: "0.82rem",
-  padding: "0.42rem 0.65rem",
-  cursor: "pointer",
-};
-
-const feedbackCellStyle: CSSProperties = {
-  textAlign: "center",
-  padding: "1.8rem 1rem",
-  color: "#475569",
-};
-
-const drawerOverlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  backgroundColor: "rgba(15, 23, 42, 0.2)",
-  display: "flex",
-  justifyContent: "flex-end",
-  zIndex: 40,
-};
-
-const drawerPanelStyle: CSSProperties = {
-  width: "min(440px, 100vw)",
-  height: "100%",
-  backgroundColor: "#ffffff",
-  borderLeft: "1px solid #e2e8f0",
-  boxShadow: "-12px 0 28px rgba(15, 23, 42, 0.12)",
-  padding: "1rem",
-  display: "grid",
-  gridTemplateRows: "auto 1fr",
-  gap: "1rem",
-};
-
-const drawerHeaderStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  borderBottom: "1px solid #e2e8f0",
-  paddingBottom: "0.8rem",
-};
-
-const drawerTitleStyle: CSSProperties = {
-  fontSize: "1rem",
-  fontWeight: 700,
-  color: "#0f172a",
-};
-
-const drawerSubtitleStyle: CSSProperties = {
-  marginTop: "0.25rem",
-  color: "#64748b",
-  fontSize: "0.82rem",
-};
-
-const closeButtonStyle: CSSProperties = {
-  border: "1px solid #cbd5e1",
-  borderRadius: "12px",
-  backgroundColor: "#ffffff",
-  color: "#0f172a",
-  padding: "0.45rem 0.7rem",
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const drawerContentStyle: CSSProperties = {
+  flexDirection: "column",
+  gap: "10px",
   overflowY: "auto",
-  display: "grid",
-  gap: "0.75rem",
-  alignContent: "start",
+  maxHeight: "620px",
 };
 
-const drawerHintStyle: CSSProperties = {
-  color: "#64748b",
-  fontSize: "0.9rem",
-};
+const getListItemStyle = (selected: boolean): CSSProperties => ({
+  border: selected ? `1px solid ${palette.indigoMain}` : `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: selected ? palette.indigoSoft : palette.white,
+  padding: "12px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+});
 
-const itemCardStyle: CSSProperties = {
-  border: "1px solid #e2e8f0",
-  borderRadius: "16px",
-  padding: "0.85rem",
-  backgroundColor: "#ffffff",
+const itemContentButtonStyle: CSSProperties = {
+  border: "none",
+  background: "transparent",
+  textAlign: "left",
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  padding: 0,
+  cursor: "pointer",
+  minWidth: 0,
 };
 
 const itemTitleStyle: CSSProperties = {
-  display: "block",
-  color: "#0f172a",
-  marginBottom: "0.35rem",
-  fontSize: "0.92rem",
+  color: palette.slate900,
+  fontSize: "0.9rem",
+  fontWeight: 800,
 };
 
 const itemMetaStyle: CSSProperties = {
+  color: palette.slate500,
+  fontSize: "0.78rem",
+};
+
+const itemRightWrapStyle: CSSProperties = {
   display: "flex",
-  gap: "0.7rem",
+  alignItems: "center",
+  gap: "8px",
+};
+
+const menuWrapStyle: CSSProperties = {
+  position: "relative",
+};
+
+const menuButtonStyle: CSSProperties = {
+  width: "34px",
+  height: "34px",
+  borderRadius: "10px",
+  border: `1px solid ${palette.slate300}`,
+  background: palette.white,
+  color: palette.slate700,
+  cursor: "pointer",
+  fontWeight: 800,
+};
+
+const menuPopoverStyle: CSSProperties = {
+  position: "absolute",
+  right: 0,
+  top: "38px",
+  zIndex: 20,
+  minWidth: "140px",
+  borderRadius: "12px",
+  border: `1px solid ${palette.slate200}`,
+  background: palette.white,
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  padding: "6px",
+  boxShadow: "0 18px 30px -22px rgba(15,23,42,0.6)",
+};
+
+const menuActionStyle: CSSProperties = {
+  border: "none",
+  background: "#f8fafc",
+  color: palette.slate700,
+  borderRadius: "10px",
+  padding: "8px 10px",
+  textAlign: "left",
+  cursor: "pointer",
+  fontSize: "0.78rem",
+  fontWeight: 700,
+};
+
+const menuDangerActionStyle: CSSProperties = {
+  border: "none",
+  background: palette.salmonSoft,
+  color: palette.salmonText,
+  borderRadius: "10px",
+  padding: "8px 10px",
+  textAlign: "left",
+  cursor: "pointer",
+  fontSize: "0.78rem",
+  fontWeight: 700,
+};
+
+const detailCardStyle: CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: "#f8fafc",
+  padding: "16px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const detailHeaderStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "10px",
   flexWrap: "wrap",
-  color: "#475569",
+};
+
+const detailTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "1.2rem",
+  fontWeight: 800,
+  color: palette.slate900,
+};
+
+const detailSubtitleStyle: CSSProperties = {
+  margin: "5px 0 0",
+  color: palette.slate500,
+  fontSize: "0.84rem",
+};
+
+const detailKpiGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  gap: "10px",
+};
+
+const detailKpiCardStyle: CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: palette.white,
+  padding: "10px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+};
+
+const detailKpiLabelStyle: CSSProperties = {
+  color: palette.slate500,
+  fontSize: "0.74rem",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+
+const detailKpiValueStyle: CSSProperties = {
+  color: palette.slate900,
+  fontWeight: 800,
+  fontSize: "0.95rem",
+};
+
+const itemsCardStyle: CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: palette.white,
+  padding: "12px",
+};
+
+const itemsTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "0.92rem",
+  fontWeight: 800,
+  color: palette.slate900,
+};
+
+const itemsHintStyle: CSSProperties = {
+  margin: "8px 0 0",
+  color: palette.slate500,
+  fontSize: "0.84rem",
+};
+
+const itemsListStyle: CSSProperties = {
+  marginTop: "10px",
+  display: "grid",
+  gap: "8px",
+};
+
+const itemRowCardStyle: CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  padding: "10px",
+  display: "grid",
+  gap: "3px",
+  background: "#f8fafc",
+};
+
+const itemRowTitleStyle: CSSProperties = {
+  color: palette.slate900,
+  fontSize: "0.85rem",
+  fontWeight: 800,
+};
+
+const itemRowMetaStyle: CSSProperties = {
+  color: palette.slate700,
   fontSize: "0.8rem",
 };
 
-const drawerPlaceholderStyle: CSSProperties = {
-  marginTop: "0.6rem",
-  borderRadius: "16px",
-  border: "1px dashed #cbd5e1",
-  padding: "0.85rem",
-  color: "#64748b",
-  fontSize: "0.8rem",
+const emptyStateStyle: CSSProperties = {
+  minHeight: "170px",
+  border: `1px dashed ${palette.slate300}`,
+  borderRadius: "20px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  color: palette.slate500,
+  fontWeight: 700,
+  fontSize: "0.88rem",
+  padding: "12px",
 };
