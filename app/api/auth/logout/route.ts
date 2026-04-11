@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { IDENTITY_SESSION_COOKIE } from "@/app/utils/identitySession";
 import { HQ_SESSION_COOKIE } from "@/app/utils/hqSession";
+import { KIPILOTE_UNIVERSE_COOKIE } from "@/app/utils/universeCookie";
 
 export async function POST() {
   const response = NextResponse.json({ ok: true });
@@ -14,6 +15,13 @@ export async function POST() {
 
   response.cookies.set({
     name: HQ_SESSION_COOKIE,
+    value: "",
+    maxAge: 0,
+    path: "/",
+  });
+
+  response.cookies.set({
+    name: KIPILOTE_UNIVERSE_COOKIE,
     value: "",
     maxAge: 0,
     path: "/",

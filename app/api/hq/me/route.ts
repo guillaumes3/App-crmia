@@ -12,7 +12,7 @@ import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/app/utils/supabase";
 export async function GET(request: Request) {
   const sessionSecret = getHqSessionSecret();
   if (!sessionSecret) {
-    return NextResponse.json({ error: "Configuration HQ incomplete." }, { status: 500 });
+    return NextResponse.json({ error: "Configuration HQ incomplete sur le serveur." }, { status: 500 });
   }
 
   const cookieHeader = request.headers.get("cookie") ?? "";

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../utils/supabase";
+import { supabase } from "@/utils/supabase";
 import { setActiveUniverse } from "@/app/utils/universeState";
 
 type AuthMode = "signin" | "forgot" | "first";
@@ -55,7 +55,7 @@ export default function StaffPortalAccessPage() {
     return "Entrer";
   }, [mode]);
 
-  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFeedback("");
     setIsLoading(true);
@@ -86,7 +86,7 @@ export default function StaffPortalAccessPage() {
 
     if (error || !data.session?.access_token) {
       setFeedbackTone("error");
-      setFeedback(error?.message || "Acces refuse.");
+      setFeedback(translateSupabaseAuthError(error?.message, "Acces refuse."));
       return;
     }
 
@@ -111,7 +111,7 @@ export default function StaffPortalAccessPage() {
 
     if (error) {
       setFeedbackTone("error");
-      setFeedback(error.message);
+      setFeedback(translateSupabaseAuthError(error.message, "Impossible d envoyer le lien de reinitialisation."));
       return;
     }
 
@@ -146,7 +146,7 @@ export default function StaffPortalAccessPage() {
 
     if (signInError || !signInData.session?.access_token) {
       setFeedbackTone("error");
-      setFeedback(signInError?.message || "Mot de passe temporaire invalide.");
+      setFeedback(translateSupabaseAuthError(signInError?.message, "Mot de passe temporaire invalide."));
       return;
     }
 
@@ -156,7 +156,7 @@ export default function StaffPortalAccessPage() {
 
     if (updateError) {
       setFeedbackTone("error");
-      setFeedback(updateError.message);
+      setFeedback(translateSupabaseAuthError(updateError.message, "Impossible de mettre a jour le mot de passe."));
       return;
     }
 
@@ -281,7 +281,27 @@ export default function StaffPortalAccessPage() {
   );
 }
 
-const pageStyle: React.CSSProperties = {
+function translateSupabaseAuthError(message: string | undefined, fallback: string) {
+  const normalized = (message ?? "").toLowerCase();
+  if (normalized.includes("invalid login credentials")) {
+    return "Identifiants invalides. Verifiez votre email et votre mot de passe.";
+  }
+  if (normalized.includes("email not confirmed")) {
+    return "Email non confirme. Verifiez votre boite mail.";
+  }
+  if (normalized.includes("too many requests")) {
+    return "Trop de tentatives. Reessayez dans quelques minutes.";
+  }
+  if (normalized.includes("network request failed")) {
+    return "Connexion reseau impossible. Verifiez votre connexion internet.";
+  }
+  if (normalized.includes("password should be at least")) {
+    return "Le mot de passe doit contenir au moins 6 caracteres.";
+  }
+  return fallback;
+}
+
+const pageStyle: CSSProperties = {
   minHeight: "100vh",
   background: "#f8fafc",
   padding: "28px",
@@ -290,7 +310,7 @@ const pageStyle: React.CSSProperties = {
   justifyContent: "center",
 };
 
-const cardStyle: React.CSSProperties = {
+const cardStyle: CSSProperties = {
   width: "100%",
   maxWidth: "560px",
   background: "#ffffff",
@@ -302,30 +322,30 @@ const cardStyle: React.CSSProperties = {
   gap: "18px",
 };
 
-const logoHeaderStyle: React.CSSProperties = {
+const logoHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "12px",
 };
 
-const logoMarkStyle: React.CSSProperties = {
+const logoMarkStyle: CSSProperties = {
   color: "#3730a3",
   fontSize: "1rem",
 };
 
-const logoTitleStyle: React.CSSProperties = {
+const logoTitleStyle: CSSProperties = {
   color: "#3730a3",
   fontSize: "1.2rem",
   fontWeight: 900,
   letterSpacing: "0.03em",
 };
 
-const logoSubtitleStyle: React.CSSProperties = {
+const logoSubtitleStyle: CSSProperties = {
   color: "#64748b",
   fontSize: "0.84rem",
 };
 
-const modeSwitchStyle: React.CSSProperties = {
+const modeSwitchStyle: CSSProperties = {
   display: "flex",
   gap: "8px",
   flexWrap: "wrap",
@@ -334,13 +354,13 @@ const modeSwitchStyle: React.CSSProperties = {
   padding: "8px",
 };
 
-const formStyle: React.CSSProperties = {
+const formStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "10px",
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   width: "100%",
   border: "1px solid #e2e8f0",
   borderRadius: "14px",
@@ -350,7 +370,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const submitButtonStyle: React.CSSProperties = {
+const submitButtonStyle: CSSProperties = {
   border: "none",
   borderRadius: "14px",
   background: "#818cf8",
@@ -361,19 +381,19 @@ const submitButtonStyle: React.CSSProperties = {
   marginTop: "4px",
 };
 
-const feedbackErrorStyle: React.CSSProperties = {
+const feedbackErrorStyle: CSSProperties = {
   margin: "2px 0 0",
   color: "#be123c",
   fontSize: "0.82rem",
 };
 
-const feedbackSuccessStyle: React.CSSProperties = {
+const feedbackSuccessStyle: CSSProperties = {
   margin: "2px 0 0",
   color: "#0f766e",
   fontSize: "0.82rem",
 };
 
-const modeButtonStyle = (active: boolean): React.CSSProperties => ({
+const modeButtonStyle = (active: boolean): CSSProperties => ({
   border: "none",
   borderRadius: "12px",
   padding: "8px 10px",
