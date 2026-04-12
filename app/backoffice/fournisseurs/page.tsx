@@ -138,6 +138,48 @@ export default function FournisseursPage() {
     });
   }, [fournisseurs, search]);
 
+  const reportYear = new Date().getFullYear();
+
+  const mockReportingBySupplierId = useMemo(() => {
+    // TODO: remplacer ce mock par une vue Supabase de reporting fournisseurs.
+    return fournisseurs.reduce<
+      Record<
+        string,
+        {
+          total_achats_ht_annuel: number;
+          taux_litige_retard: number;
+          score_ponctualite: number;
+          repartition_categories: Array<{
+            label: string;
+            part: number;
+            color: string;
+          }>;
+        }
+      >
+    >((acc, fournisseur, index) => {
+      const seed = fournisseur.nom.length * 17 + index * 31;
+      const baseAnnual = 18000 + seed * 230 + toNumber(fournisseur.commandes_en_cours) * 950;
+      const catA = 28 + (seed % 22);
+      const catB = 18 + ((seed + 7) % 20);
+      const catC = 12 + ((seed + 11) % 16);
+      const catD = Math.max(8, 100 - catA - catB - catC);
+
+      acc[fournisseur.id] = {
+        total_achats_ht_annuel: baseAnnual,
+        taux_litige_retard: 3 + (seed % 12),
+        score_ponctualite: Math.max(72, 98 - (seed % 19)),
+        repartition_categories: [
+          { label: "Consommables", part: catA, color: "#4f46e5" },
+          { label: "Materiel", part: catB, color: "#0ea5e9" },
+          { label: "Packaging", part: catC, color: "#22c55e" },
+          { label: "Autres", part: catD, color: "#f59e0b" },
+        ],
+      };
+
+      return acc;
+    }, {});
+  }, [fournisseurs]);
+
   const kpis = useMemo(() => {
     const totalArticles = catalogue.length;
     const ruptureCount = catalogue.filter((article) => toNumber(article.stock_actuel) <= 0).length;
@@ -150,6 +192,55 @@ export default function FournisseursPage() {
       suggestionsCount: suggestions.length,
     };
   }, [catalogue, suggestions]);
+
+  const reportingKpis = useMemo(() => {
+    if (!selectedFournisseur) {
+      return null;
+    }
+
+    const mock = mockReportingBySupplierId[selectedFournisseur.id];
+    if (!mock) {
+      return null;
+    }
+
+    const commandesAnnee = commandes.filter((commande) => {
+      const rawDate = commande.date_commande || commande.created_at;
+      if (!rawDate) return false;
+
+      const year = new Date(rawDate).getFullYear();
+      return Number.isFinite(year) && year === reportYear;
+    });
+
+    const totalAchatsReels = commandesAnnee.reduce((sum, commande) => sum + toNumber(commande.total_ht), 0);
+    const commandesEnCours = commandes.filter((commande) => commande.statut !== "Recu").length;
+    const commandesRecues = commandes.filter((commande) => commande.statut === "Recu").length;
+
+    return {
+      totalAchatsHtAnnuel: totalAchatsReels > 0 ? totalAchatsReels : mock.total_achats_ht_annuel,
+      commandesEnCours: commandesEnCours || selectedFournisseur.commandes_en_cours,
+      commandesRecues,
+      tauxLitigeRetard: mock.taux_litige_retard,
+      scorePonctualite: mock.score_ponctualite,
+      repartitionCategories: mock.repartition_categories,
+    };
+  }, [selectedFournisseur, mockReportingBySupplierId, commandes, reportYear]);
+
+  const topFournisseurs = useMemo(() => {
+    return fournisseurs
+      .map((fournisseur) => {
+        const mock = mockReportingBySupplierId[fournisseur.id];
+        const isSelected = fournisseur.id === selectedFournisseurId;
+        const totalAchatsSelection = isSelected ? reportingKpis?.totalAchatsHtAnnuel ?? 0 : 0;
+
+        return {
+          id: fournisseur.id,
+          nom: fournisseur.nom,
+          totalAchatsHt: totalAchatsSelection > 0 ? totalAchatsSelection : mock?.total_achats_ht_annuel ?? 0,
+        };
+      })
+      .sort((a, b) => b.totalAchatsHt - a.totalAchatsHt)
+      .slice(0, 3);
+  }, [fournisseurs, mockReportingBySupplierId, selectedFournisseurId, reportingKpis]);
 
   const orderTotalHt = useMemo(() => {
     return orderLines.reduce((sum, line) => sum + toNumber(line.quantite) * toNumber(line.prix_achat_ht), 0);
@@ -510,6 +601,99 @@ export default function FournisseursPage() {
                 </div>
               </article>
 
+              {reportingKpis ? (
+                <div style={getReportingGridStyle(isCompactLayout)}>
+                  <article style={sectionCardStyle}>
+                    <h3 style={sectionTitleStyle}>Statistiques globales</h3>
+                    <p style={sectionSubtitleStyle}>Vue annuelle des achats et du risque fournisseur ({reportYear}).</p>
+
+                    <div style={globalKpiGridStyle}>
+                      <div style={globalKpiCardStyle}>
+                        <span style={kpiLabelStyle}>Total Achats HT (Annuel)</span>
+                        <strong style={kpiValueStyle}>{euroFormat.format(reportingKpis.totalAchatsHtAnnuel)}</strong>
+                      </div>
+
+                      <div style={globalKpiCardStyle}>
+                        <span style={kpiLabelStyle}>Commandes en cours</span>
+                        <strong style={kpiValueStyle}>{reportingKpis.commandesEnCours}</strong>
+                      </div>
+
+                      <div style={globalKpiCardStyle}>
+                        <span style={kpiLabelStyle}>Commandes recues</span>
+                        <strong style={kpiValueStyle}>{reportingKpis.commandesRecues}</strong>
+                      </div>
+
+                      <div style={globalKpiCardStyle}>
+                        <span style={kpiLabelStyle}>Taux litige/retard</span>
+                        <strong style={kpiValueStyle}>{formatPercent(reportingKpis.tauxLitigeRetard)}</strong>
+                      </div>
+                    </div>
+                  </article>
+
+                  <article style={sectionCardStyle}>
+                    <h3 style={sectionTitleStyle}>Repartition des categories</h3>
+                    <p style={sectionSubtitleStyle}>Poids des familles produits les plus achetees.</p>
+
+                    <div style={categoryChartListStyle}>
+                      {reportingKpis.repartitionCategories.map((category) => {
+                        const amountHt = (reportingKpis.totalAchatsHtAnnuel * category.part) / 100;
+                        return (
+                          <div key={category.label} style={categoryChartItemStyle}>
+                            <div style={categoryChartRowStyle}>
+                              <span style={categoryChartLabelStyle}>{category.label}</span>
+                              <strong style={categoryChartValueStyle}>
+                                {formatPercent(category.part)} - {euroFormat.format(amountHt)}
+                              </strong>
+                            </div>
+                            <div style={categoryChartTrackStyle}>
+                              <div style={getCategoryChartFillStyle(category.color, category.part)} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
+
+                  <article style={sectionCardStyle}>
+                    <h3 style={sectionTitleStyle}>Top fournisseurs</h3>
+                    <p style={sectionSubtitleStyle}>Classement des 3 meilleurs volumes d achat total HT.</p>
+
+                    {topFournisseurs.length === 0 ? (
+                      <p style={emptyInlineStyle}>Aucune donnee de ranking disponible.</p>
+                    ) : (
+                      <div style={topSupplierListStyle}>
+                        {topFournisseurs.map((supplier, index) => (
+                          <div key={supplier.id} style={topSupplierItemStyle}>
+                            <div style={topSupplierIdentityStyle}>
+                              <span style={topSupplierRankStyle}>{index + 1}</span>
+                              <div>
+                                <p style={topSupplierNameStyle}>{supplier.nom}</p>
+                                <p style={topSupplierVolumeStyle}>{euroFormat.format(supplier.totalAchatsHt)}</p>
+                              </div>
+                            </div>
+                            {supplier.id === selectedFournisseurId ? <span style={topSupplierBadgeStyle}>Actif</span> : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+
+                  <article style={sectionCardStyle}>
+                    <h3 style={sectionTitleStyle}>Suivi de livraison</h3>
+                    <p style={sectionSubtitleStyle}>Score de ponctualite moyen du fournisseur selectionne.</p>
+
+                    <div style={deliveryScoreHeaderStyle}>
+                      <strong style={deliveryScoreValueStyle}>{formatPercent(reportingKpis.scorePonctualite)}</strong>
+                      <span style={deliveryScoreTagStyle}>Ponctualite</span>
+                    </div>
+                    <div style={deliveryProgressTrackStyle}>
+                      <div style={getDeliveryProgressFillStyle(reportingKpis.scorePonctualite)} />
+                    </div>
+                    <p style={deliveryScoreHintStyle}>{getPunctualityHint(reportingKpis.scorePonctualite)}</p>
+                  </article>
+                </div>
+              ) : null}
+
               {selectedFournisseur.mode_reappro_auto ? (
                 <article style={suggestionCardStyle}>
                   <div style={suggestionHeaderStyle}>
@@ -785,6 +969,25 @@ function toNumber(value: unknown): number {
   }
 
   return 0;
+}
+
+function formatPercent(value: number): string {
+  return `${value.toLocaleString("fr-FR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
+}
+
+function getPunctualityHint(score: number): string {
+  if (score >= 95) {
+    return "Excellent niveau de respect des delais de livraison.";
+  }
+
+  if (score >= 88) {
+    return "Performance stable, quelques retards ponctuels detectes.";
+  }
+
+  return "Surveillez ce fournisseur: retards frequents sur les dernieres livraisons.";
 }
 
 const pageStyle: React.CSSProperties = {
@@ -1285,6 +1488,158 @@ const sectionCardStyle: React.CSSProperties = {
   gap: "10px",
 };
 
+const globalKpiGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "8px",
+};
+
+const globalKpiCardStyle: React.CSSProperties = {
+  border: "1px solid #dbe3ee",
+  borderRadius: "14px",
+  background: "linear-gradient(155deg, #ffffff 0%, #f8fafc 100%)",
+  padding: "11px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+};
+
+const categoryChartListStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+};
+
+const categoryChartItemStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+};
+
+const categoryChartRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "8px",
+  alignItems: "baseline",
+};
+
+const categoryChartLabelStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: "0.82rem",
+  fontWeight: 800,
+};
+
+const categoryChartValueStyle: React.CSSProperties = {
+  color: "#334155",
+  fontSize: "0.76rem",
+  fontWeight: 700,
+};
+
+const categoryChartTrackStyle: React.CSSProperties = {
+  width: "100%",
+  height: "10px",
+  borderRadius: "999px",
+  background: "#e2e8f0",
+  overflow: "hidden",
+};
+
+const topSupplierListStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+};
+
+const topSupplierItemStyle: React.CSSProperties = {
+  borderRadius: "12px",
+  border: "1px solid #e2e8f0",
+  background: "#ffffff",
+  padding: "9px 10px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const topSupplierIdentityStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "9px",
+};
+
+const topSupplierRankStyle: React.CSSProperties = {
+  width: "24px",
+  height: "24px",
+  borderRadius: "50%",
+  background: "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+  color: "#ffffff",
+  fontSize: "0.72rem",
+  fontWeight: 900,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const topSupplierNameStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: "0.82rem",
+  fontWeight: 800,
+};
+
+const topSupplierVolumeStyle: React.CSSProperties = {
+  margin: "2px 0 0 0",
+  color: "#64748b",
+  fontSize: "0.75rem",
+  fontWeight: 700,
+};
+
+const topSupplierBadgeStyle: React.CSSProperties = {
+  borderRadius: "999px",
+  padding: "4px 9px",
+  background: "#eef2ff",
+  color: "#3730a3",
+  fontSize: "0.7rem",
+  fontWeight: 800,
+};
+
+const deliveryScoreHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const deliveryScoreValueStyle: React.CSSProperties = {
+  color: "#0f172a",
+  fontSize: "1.24rem",
+  fontWeight: 900,
+};
+
+const deliveryScoreTagStyle: React.CSSProperties = {
+  borderRadius: "999px",
+  padding: "4px 10px",
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  fontSize: "0.72rem",
+  fontWeight: 800,
+};
+
+const deliveryProgressTrackStyle: React.CSSProperties = {
+  width: "100%",
+  height: "12px",
+  borderRadius: "999px",
+  background: "#e2e8f0",
+  overflow: "hidden",
+};
+
+const deliveryScoreHintStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#475569",
+  fontSize: "0.78rem",
+};
+
 const tableWrapStyle: React.CSSProperties = {
   overflowX: "auto",
 };
@@ -1438,6 +1793,14 @@ function getDetailGridStyle(isCompactLayout: boolean): React.CSSProperties {
   };
 }
 
+function getReportingGridStyle(isCompactLayout: boolean): React.CSSProperties {
+  return {
+    display: "grid",
+    gap: "14px",
+    gridTemplateColumns: isCompactLayout ? "1fr" : "1fr 1fr",
+  };
+}
+
 function getSupplierRowStyle(isSelected: boolean): React.CSSProperties {
   return isSelected ? { ...supplierRowBaseStyle, ...supplierRowSelectedStyle } : supplierRowBaseStyle;
 }
@@ -1520,6 +1883,24 @@ function getOrderStatusStyle(status: PurchaseOrderStatus): React.CSSProperties {
     color: "#5b21b6",
     fontSize: "0.74rem",
     fontWeight: 800,
+  };
+}
+
+function getCategoryChartFillStyle(color: string, part: number): React.CSSProperties {
+  return {
+    width: `${Math.max(0, Math.min(100, part))}%`,
+    height: "100%",
+    borderRadius: "999px",
+    background: `linear-gradient(120deg, ${color} 0%, #0f172a 180%)`,
+  };
+}
+
+function getDeliveryProgressFillStyle(score: number): React.CSSProperties {
+  return {
+    width: `${Math.max(0, Math.min(100, score))}%`,
+    height: "100%",
+    borderRadius: "999px",
+    background: "linear-gradient(120deg, #22c55e 0%, #2563eb 100%)",
   };
 }
 
