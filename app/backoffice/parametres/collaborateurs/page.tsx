@@ -9,8 +9,23 @@ type CollaborateurRow = {
   organisation_id?: string | null;
   nom?: string | null;
   prenom?: string | null;
+  email?: string | null;
   equipe?: string | null;
   role?: string | null;
+};
+
+type CreateCollaborateurForm = {
+  prenom: string;
+  nom: string;
+  email: string;
+  role: string;
+};
+
+const defaultCreateForm: CreateCollaborateurForm = {
+  prenom: "",
+  nom: "",
+  email: "",
+  role: "Collaborateur",
 };
 
 export default function CollaborateursPage() {
@@ -18,6 +33,8 @@ export default function CollaborateursPage() {
   const [collabList, setCollabList] = useState<CollaborateurRow[]>([]);
   const [selectedCollab, setSelectedCollab] = useState<CollaborateurRow | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateCollaborateurForm>(defaultCreateForm);
   const [loading, setLoading] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(false);
 
@@ -85,6 +102,68 @@ export default function CollaborateursPage() {
     setLoading(false);
   };
 
+  const handleCreate = async () => {
+    if (!orgId) {
+      alert("Organisation introuvable.");
+      return;
+    }
+    if (!createForm.prenom.trim() || !createForm.nom.trim() || !createForm.role.trim()) {
+      alert("Prenom, nom et role sont obligatoires.");
+      return;
+    }
+    if (!isValidEmail(createForm.email)) {
+      alert("Email invalide.");
+      return;
+    }
+
+    setLoading(true);
+
+    // Etape 1 : tentative d invitation (si la methode est disponible et autorisee).
+    let inviteWarning = "";
+    try {
+      const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(createForm.email.trim().toLowerCase(), {
+        data: {
+          organisation_id: orgId,
+          prenom: createForm.prenom.trim(),
+          nom: createForm.nom.trim(),
+          role: createForm.role.trim(),
+        },
+      });
+      if (inviteError) {
+        inviteWarning = inviteError.message;
+      }
+    } catch (error) {
+      inviteWarning = error instanceof Error ? error.message : "Invitation non disponible.";
+    }
+
+    // Etape 2 : fallback test, insertion d un profil rattache a l organisation courante.
+    const { error: insertError } = await supabase.from("profiles").insert({
+      organisation_id: orgId,
+      prenom: createForm.prenom.trim(),
+      nom: createForm.nom.trim(),
+      email: createForm.email.trim().toLowerCase(),
+      role: createForm.role.trim(),
+    });
+
+    if (insertError) {
+      alert("Erreur creation membre : " + insertError.message);
+      setLoading(false);
+      return;
+    }
+
+    setCreateForm(defaultCreateForm);
+    setIsCreating(false);
+    setSelectedCollab(null);
+    await loadData();
+    setLoading(false);
+
+    if (inviteWarning) {
+      alert("Membre cree dans profiles. Invitation non envoyee: " + inviteWarning);
+      return;
+    }
+    alert("Membre ajoute et invitation traitee.");
+  };
+
   return (
     <div style={pageStyle}>
       <header style={pageHeaderStyle}>
@@ -96,7 +175,21 @@ export default function CollaborateursPage() {
 
       <div style={getDualPaneStyle(isCompactLayout)}>
         <section style={panelStyle}>
-          <h2 style={panelTitleStyle}>Membres de l organisation</h2>
+          <div style={panelHeaderRowStyle}>
+            <h2 style={panelTitleStyle}>Membres de l organisation</h2>
+            <button
+              type="button"
+              style={addMemberButtonStyle}
+              onClick={() => {
+                setCreateForm(defaultCreateForm);
+                setIsCreating(true);
+                setSelectedCollab(null);
+                setActiveMenu(null);
+              }}
+            >
+              <span style={plusIconStyle}>+</span> Ajouter un membre
+            </button>
+          </div>
           {collabList.length === 0 ? (
             <p style={emptyHintStyle}>Aucun membre (table vide).</p>
           ) : (
@@ -107,6 +200,7 @@ export default function CollaborateursPage() {
                   style={itemIdentityButtonStyle}
                   onClick={() => {
                     setSelectedCollab(collab);
+                    setIsCreating(false);
                     setActiveMenu(null);
                   }}
                 >
@@ -127,6 +221,7 @@ export default function CollaborateursPage() {
                         style={dropdownItemStyle}
                         onClick={() => {
                           setSelectedCollab(collab);
+                          setIsCreating(false);
                           setActiveMenu(null);
                         }}
                       >
@@ -141,8 +236,39 @@ export default function CollaborateursPage() {
         </section>
 
         <section style={panelStyle}>
-          <h2 style={panelTitleStyle}>Details du profil</h2>
-          {selectedCollab ? (
+          <h2 style={panelTitleStyle}>{isCreating ? "Mode Creation" : "Mode Edition"}</h2>
+          {isCreating ? (
+            <div style={formStyle}>
+              <input
+                style={inputStyle}
+                value={createForm.prenom}
+                onChange={(event) => setCreateForm({ ...createForm, prenom: event.target.value })}
+                placeholder="Prenom"
+              />
+              <input
+                style={inputStyle}
+                value={createForm.nom}
+                onChange={(event) => setCreateForm({ ...createForm, nom: event.target.value })}
+                placeholder="Nom"
+              />
+              <input
+                style={inputStyle}
+                value={createForm.email}
+                onChange={(event) => setCreateForm({ ...createForm, email: event.target.value })}
+                placeholder="Email"
+                type="email"
+              />
+              <input
+                style={inputStyle}
+                value={createForm.role}
+                onChange={(event) => setCreateForm({ ...createForm, role: event.target.value })}
+                placeholder="Role"
+              />
+              <button onClick={handleCreate} disabled={loading} style={saveButtonStyle}>
+                {loading ? "Creation..." : "Ajouter"}
+              </button>
+            </div>
+          ) : selectedCollab ? (
             <div style={formStyle}>
               <input
                 style={inputStyle}
@@ -162,17 +288,27 @@ export default function CollaborateursPage() {
                 onChange={(event) => setSelectedCollab({ ...selectedCollab, equipe: event.target.value })}
                 placeholder="Equipe"
               />
+              <input
+                style={inputStyle}
+                value={selectedCollab.role || ""}
+                onChange={(event) => setSelectedCollab({ ...selectedCollab, role: event.target.value })}
+                placeholder="Role"
+              />
               <button onClick={handleUpdate} disabled={loading} style={saveButtonStyle}>
                 {loading ? "Enregistrement..." : "Sauvegarder"}
               </button>
             </div>
           ) : (
-            <div style={emptyStateStyle}>Selectionnez un collaborateur a gauche.</div>
+            <div style={emptyStateStyle}>Selectionnez un collaborateur a gauche ou ajoutez un membre.</div>
           )}
         </section>
       </div>
     </div>
   );
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 const cardShadow = "0 16px 32px -25px rgba(15, 23, 42, 0.28)";
@@ -224,6 +360,40 @@ const panelTitleStyle: React.CSSProperties = {
   color: "#0f172a",
   fontWeight: 900,
   fontSize: "1.04rem",
+};
+
+const panelHeaderRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "10px",
+};
+
+const addMemberButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "8px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "14px",
+  padding: "9px 12px",
+  background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
+  color: "#ffffff",
+  fontWeight: 800,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  boxShadow: "0 12px 22px -16px rgba(49, 46, 129, 0.75)",
+};
+
+const plusIconStyle: React.CSSProperties = {
+  width: "18px",
+  height: "18px",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.18)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 900,
+  lineHeight: 1,
 };
 
 const emptyHintStyle: React.CSSProperties = {
