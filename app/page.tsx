@@ -4,8 +4,12 @@ import { useRouter } from 'next/navigation';
 export default function HomePage() {
   const router = useRouter();
 
-  const scrollToPricing = () => {
-    document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleContactSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
   };
 
   return (
@@ -21,14 +25,14 @@ export default function HomePage() {
           KIPILOTE<span style={{ color: '#6366f1' }}>.</span>
         </div>
         <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
-          <button onClick={scrollToPricing} style={navLinkStyle}>Tarifs</button>
+          <button onClick={() => scrollToSection('pricing')} style={navLinkStyle}>Tarifs</button>
           <button onClick={() => router.push('/login')} style={navLinkStyle}>Connexion</button>
           <button onClick={() => router.push('/login')} style={btnPrimarySmall}>Essai Gratuit</button>
         </div>
       </nav>
 
       {/* HERO SECTION */}
-      <header style={{ textAlign: 'center', padding: '100px 20px' }}>
+      <header id="features" style={{ textAlign: 'center', padding: '100px 20px' }}>
         <h1 style={{ fontSize: 'clamp(2.5rem, 8vw, 4.5rem)', fontWeight: 950, letterSpacing: '-2px', lineHeight: 1.1, marginBottom: '25px' }}>
           Le pilotage business <br/>en toute <span style={{ color: '#6366f1' }}>simplicité.</span>
         </h1>
@@ -37,7 +41,7 @@ export default function HomePage() {
         </p>
         <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
           <button onClick={() => router.push('/login')} style={btnDarkLarge}>Acceder a mon espace</button>
-          <button onClick={scrollToPricing} style={btnLightLarge}>Voir les plans</button>
+          <button onClick={() => scrollToSection('pricing')} style={btnLightLarge}>Voir les plans</button>
         </div>
       </header>
 
@@ -80,9 +84,74 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer style={{ textAlign: 'center', padding: '50px', color: '#94a3b8', fontSize: '0.85rem', borderTop: '1px solid #f1f5f9', marginTop: '50px' }}>
-        © 2026 Kipilote. Tous droits reserves.
+      {/* SECTION CONTACT */}
+      <section id="contact" style={{ background: '#f8fafc', padding: '80px 20px 90px 20px' }}>
+        <div style={{ maxWidth: '920px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <h2 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: '12px' }}>Contactez-nous</h2>
+            <p style={{ color: '#64748b' }}>Une question sur Kipilote ? Ecrivez-nous et notre equipe vous repond rapidement.</p>
+          </div>
+
+          <form onSubmit={handleContactSubmit} style={contactFormStyle}>
+            <div style={contactGrid}>
+              <input className="contact-input" type="text" name="name" placeholder="Nom" required style={contactInputStyle} />
+              <input className="contact-input" type="email" name="email" placeholder="Email" required style={contactInputStyle} />
+            </div>
+            <input className="contact-input" type="text" name="subject" placeholder="Sujet" required style={contactInputStyle} />
+            <textarea className="contact-textarea" name="message" placeholder="Message" required rows={5} style={contactTextareaStyle} />
+            <button type="submit" style={contactSubmitStyle}>Envoyer</button>
+          </form>
+        </div>
+      </section>
+
+      <footer style={{ borderTop: '1px solid #e2e8f0', background: 'white' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '44px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
+          <div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 950, letterSpacing: '-1px', marginBottom: '10px' }}>
+              KIPILOTE<span style={{ color: '#6366f1' }}>.</span>
+            </div>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', lineHeight: 1.7, margin: 0 }}>
+              Notre mission : simplifier le pilotage quotidien des entreprises avec un ERP clair, rapide et fiable.
+            </p>
+          </div>
+
+          <div>
+            <h3 style={footerTitleStyle}>Liens Rapides</h3>
+            <div style={footerLinkListStyle}>
+              <button onClick={() => scrollToSection('pricing')} style={footerLinkButton}>Tarifs</button>
+              <button onClick={() => scrollToSection('features')} style={footerLinkButton}>Fonctionnalites</button>
+              <button onClick={() => scrollToSection('contact')} style={footerLinkButton}>Contact</button>
+            </div>
+          </div>
+
+          <div>
+            <h3 style={footerTitleStyle}>Acces Securises</h3>
+            <div style={footerLinkListStyle}>
+              <button onClick={() => router.push('/login')} style={footerLinkButton}>Portail Client</button>
+              <button onClick={() => router.push('/hq')} style={footerHqButton}>Acces Maison Mere</button>
+              <p style={{ color: '#64748b', fontSize: '0.8rem', margin: 0 }}>Reserve au staff</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ borderTop: '1px solid #f1f5f9', padding: '16px 20px', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+          © 2026 Kipilote. Tous droits reserves.
+        </div>
       </footer>
+
+      <style jsx>{`
+        .contact-input,
+        .contact-textarea {
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .contact-input:focus,
+        .contact-textarea:focus {
+          outline: none;
+          border-color: #6366f1;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
+        }
+      `}</style>
     </div>
   );
 }
@@ -101,3 +170,14 @@ const featureList = { listStyle: 'none', padding: 0, marginBottom: '35px', textA
 const featureItem = { padding: '10px 0', fontSize: '0.9rem', color: '#475569', borderBottom: '1px solid #f8fafc' };
 const btnPrice = { width: '100%', background: '#0f172a', color: 'white', border: 'none', padding: '15px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' };
 const badgePro = { position: 'absolute' as any, top: '-15px', left: '50%', transform: 'translateX(-50%)', background: '#6366f1', color: 'white', padding: '5px 15px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 900 };
+
+const contactFormStyle = { background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', padding: '28px', display: 'flex', flexDirection: 'column' as const, gap: '14px' };
+const contactGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' };
+const contactInputStyle = { border: '1px solid #cbd5e1', borderRadius: '10px', padding: '12px 14px', fontSize: '0.95rem', color: '#0f172a', width: '100%' };
+const contactTextareaStyle = { border: '1px solid #cbd5e1', borderRadius: '10px', padding: '12px 14px', fontSize: '0.95rem', color: '#0f172a', width: '100%', resize: 'vertical' as const, fontFamily: 'inherit' };
+const contactSubmitStyle = { alignSelf: 'flex-start' as const, background: '#0f172a', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 30px', fontWeight: 800, cursor: 'pointer', fontSize: '0.95rem' };
+
+const footerTitleStyle = { margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' };
+const footerLinkListStyle = { display: 'flex', flexDirection: 'column' as const, gap: '8px', alignItems: 'flex-start' as const };
+const footerLinkButton = { background: 'none', border: 'none', padding: 0, color: '#64748b', fontSize: '0.85rem', cursor: 'pointer', textAlign: 'left' as const };
+const footerHqButton = { ...footerLinkButton, textDecoration: 'underline', textUnderlineOffset: '4px', fontWeight: 700 };
