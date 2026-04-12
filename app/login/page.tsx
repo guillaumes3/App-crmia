@@ -9,6 +9,10 @@ type BootstrapSessionResponse = {
   error?: string;
 };
 
+type LoginProfileRow = {
+  must_change_password?: boolean | null;
+};
+
 const isRefreshTokenError = (error: { message?: string; name?: string } | null) => {
   const rawMessage = `${error?.name ?? ""} ${error?.message ?? ""}`.toLowerCase();
   return rawMessage.includes("refresh token");
@@ -21,6 +25,7 @@ export default function LoginPage() {
   const [nomEntreprise, setNomEntreprise] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState("");
+  const [helperMessage, setHelperMessage] = useState("");
   const router = useRouter();
 
   // --- TON MOT DE PASSE SECRET MASTER ---
@@ -46,10 +51,40 @@ export default function LoginPage() {
     void validateStoredSession();
   }, [resetCorruptedSession]);
 
+  const handleForgotPassword = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      alert("Veuillez saisir une adresse email valide avant de demander la reinitialisation.");
+      return;
+    }
+
+    setIsLoading(true);
+    setHelperMessage("");
+
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/update-password`
+        : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo,
+    });
+
+    if (error) {
+      alert(translateSupabaseAuthError(error.message, "Impossible d envoyer le lien de reinitialisation."));
+      setIsLoading(false);
+      return;
+    }
+
+    setHelperMessage("Lien envoye. Verifiez votre boite email pour reinitialiser le mot de passe.");
+    setIsLoading(false);
+  };
+
   const handleAuth = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setSessionExpiredMessage("");
+    setHelperMessage("");
 
     // 🛡️ ACCÈS DÉROBÉ POUR LE MASTER ADMIN
     if (email.toLowerCase() === "admin" && password === MASTER_PASSWORD) {
@@ -81,6 +116,22 @@ export default function LoginPage() {
 
         alert(translateSupabaseAuthError(error?.message, "Connexion impossible."));
       } else {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("must_change_password")
+          .eq("auth_user_id", data.user.id)
+          .maybeSingle<LoginProfileRow>();
+
+        if (profileError) {
+          await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+          await supabase.auth.signOut();
+          alert("Impossible de verifier votre profil. Reessayez ou contactez un administrateur.");
+          setIsLoading(false);
+          return;
+        }
+
+        const mustChangePassword = profile?.must_change_password === true;
+
         const bootstrapResponse = await fetch("/api/auth/session", {
           method: "POST",
           headers: {
@@ -134,7 +185,7 @@ export default function LoginPage() {
 
         setActiveUniverse("client");
         router.refresh();
-        router.push("/backoffice/dashboard");
+        router.push(mustChangePassword ? "/auth/setup-password" : "/backoffice/dashboard");
       }
     } else {
       // --- INSCRIPTION NOUVELLE ENTREPRISE ---
@@ -217,6 +268,27 @@ export default function LoginPage() {
           <button type="submit" disabled={isLoading} style={submitButtonStyle}>
             {isLoading ? "Patientez..." : (isLogin ? "Se connecter" : "Lancer mon commerce")}
           </button>
+          {isLogin ? (
+            <div style={secondaryActionsRowStyle}>
+              <button
+                type="button"
+                style={secondaryLinkButtonStyle}
+                onClick={() => {
+                  setHelperMessage(
+                    "Utilisez le mot de passe temporaire fourni par votre administrateur pour votre première session.",
+                  );
+                }}
+              >
+                Première connexion ?
+              </button>
+              <button type="button" style={secondaryLinkButtonStyle} disabled={isLoading} onClick={() => void handleForgotPassword()}>
+                Mot de passe oublie ?
+              </button>
+            </div>
+          ) : null}
+          {helperMessage ? (
+            <p style={helperMessageStyle}>{helperMessage}</p>
+          ) : null}
         </form>
         <p onClick={() => setIsLogin(!isLogin)} style={switchModeStyle}>
           {isLogin ? "Nouvelle entreprise ? Inscrivez-vous" : "Déjà un compte ? Connectez-vous"}
@@ -300,13 +372,42 @@ const inputStyle: CSSProperties = {
 };
 
 const submitButtonStyle: CSSProperties = {
-  background: "#6366f1",
+  background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
   color: "#ffffff",
   padding: "1rem",
   borderRadius: "8px",
   border: "none",
   fontWeight: 700,
   cursor: "pointer",
+};
+
+const secondaryActionsRowStyle: CSSProperties = {
+  marginTop: "-0.35rem",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.7rem",
+  flexWrap: "wrap",
+};
+
+const secondaryLinkButtonStyle: CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "#4f46e5",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  cursor: "pointer",
+  padding: 0,
+};
+
+const helperMessageStyle: CSSProperties = {
+  margin: 0,
+  color: "#4338ca",
+  fontSize: "0.82rem",
+  background: "#eef2ff",
+  border: "1px solid #c7d2fe",
+  borderRadius: "8px",
+  padding: "0.6rem 0.7rem",
 };
 
 const switchModeStyle: CSSProperties = {

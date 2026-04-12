@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../../utils/supabase";
 import { getOrganisationId, isKipiloteStaff } from "@/app/types/auth";
 
@@ -156,93 +156,8 @@ export default function CollaborateursPage() {
   };
 
   return (
-    <div style={pageStyle}>
-      <header style={pageHeaderStyle}>
-        <div>
-          <h1 style={pageTitleStyle}>Collaborateurs</h1>
-          <p style={pageSubtitleStyle}>Gestion des accès et mots de passe temporaires.</p>
-        </div>
-      </header>
-
-      <div style={getDualPaneStyle(isCompactLayout)}>
-        <section style={panelStyle}>
-          <div style={panelHeaderRowStyle}>
-            <h2 style={panelTitleStyle}>Membres ({collabList.length})</h2>
-            <button style={addMemberButtonStyle} onClick={() => { setIsCreating(true); setSelectedCollab(null); }}>
-              <span style={plusIconStyle}>+</span> Nouveau
-            </button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-            {collabList.map((collab) => (
-              <article key={collab.id} style={itemStyle}>
-                <button style={itemIdentityButtonStyle} onClick={() => { setSelectedCollab(collab); setIsCreating(false); }}>
-                  <div style={itemNameStyle}>{collab.prenom} {collab.nom}</div>
-                  <div style={itemRoleStyle}>
-                    {collab.role} {collab.must_change_password && "• ⚠️ Mdp à changer"}
-                  </div>
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section style={panelStyle}>
-          <h2 style={panelTitleStyle}>{isCreating ? "Nouvel accès" : "Fiche profil"}</h2>
-          {isCreating ? (
-            <div style={formStyle}>
-              <div style={inputGroupStyle}>
-                <input style={inputStyle} placeholder="Prénom" value={createForm.prenom} onChange={e => setCreateForm({...createForm, prenom: e.target.value})} />
-                <input style={inputStyle} placeholder="Nom" value={createForm.nom} onChange={e => setCreateForm({...createForm, nom: e.target.value})} />
-              </div>
-              <input style={inputStyle} placeholder="Email professionnel" type="email" value={createForm.email} onChange={e => setCreateForm({...createForm, email: e.target.value})} />
-              
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  style={{ ...inputStyle, flex: 1 }} 
-                  type="text"
-                  placeholder="Mot de passe temporaire" 
-                  value={createForm.password} 
-                  onChange={e => setCreateForm({...createForm, password: e.target.value})}
-                />
-                <button type="button" onClick={generateTempPassword} style={secondaryButtonStyle}>Générer</button>
-              </div>
-
-              <select style={inputStyle} value={createForm.role} onChange={e => setCreateForm({...createForm, role: e.target.value})}>
-                <option value="Collaborateur">Collaborateur</option>
-                <option value="Manager">Manager</option>
-                <option value="Administrateur">Administrateur</option>
-              </select>
-
-              <button onClick={handleCreate} disabled={loading} style={saveButtonStyle}>
-                {loading ? "Création du compte..." : "Créer et activer l'accès"}
-              </button>
-            </div>
-          ) : selectedCollab ? (
-            <div style={formStyle}>
-              <input style={inputStyle} value={selectedCollab.prenom || ""} onChange={e => setSelectedCollab({...selectedCollab, prenom: e.target.value})} />
-              <input style={inputStyle} value={selectedCollab.nom || ""} onChange={e => setSelectedCollab({...selectedCollab, nom: e.target.value})} />
-              <input style={inputStyle} value={selectedCollab.role || ""} onChange={e => setSelectedCollab({...selectedCollab, role: e.target.value})} />
-              <button onClick={handleUpdate} disabled={loading} style={saveButtonStyle}>Mettre à jour</button>
-            </div>
-          ) : (
-            <div style={emptyStateStyle}>Sélectionnez un membre pour voir les détails.</div>
-          )}
-        </section>
-      </div>
+    <div style={{ padding: '2rem', fontFamily: 'system-ui, sans-serif', backgroundColor: '#f9fafb', minHeight: '100vh' }}>
+      {/* Add your JSX here */}
     </div>
   );
 }
-
-// Styles complémentaires à ajouter à votre fichier
-const inputGroupStyle: React.CSSProperties = { display: 'flex', gap: '10px' };
-const secondaryButtonStyle: React.CSSProperties = {
-  padding: '10px',
-  borderRadius: '12px',
-  border: '1px solid #cbd5e1',
-  background: '#f8fafc',
-  cursor: 'pointer',
-  fontWeight: 700,
-  fontSize: '0.8rem'
-};
-
-// ... (Gardez vos autres styles existants ici)
