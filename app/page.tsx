@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
@@ -128,7 +129,9 @@ export default function HomePage() {
             <h3 style={footerTitleStyle}>Acces Securises</h3>
             <div style={footerLinkListStyle}>
               <button onClick={() => router.push('/login')} style={footerLinkButton}>Portail Client</button>
-              <button onClick={() => router.push('/hq')} style={footerHqButton}>Acces Maison Mere</button>
+              <Link href="/hq/login" className="hq-footer-link" style={footerHqLink}>
+                Acces Maison Mere
+              </Link>
               <p style={{ color: '#64748b', fontSize: '0.8rem', margin: 0 }}>Reserve au staff</p>
             </div>
           </div>
@@ -150,6 +153,10 @@ export default function HomePage() {
           outline: none;
           border-color: #6366f1;
           box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
+        }
+
+        .hq-footer-link:hover {
+          color: #3730a3;
         }
       `}</style>
     </div>
@@ -180,4 +187,11 @@ const contactSubmitStyle = { alignSelf: 'flex-start' as const, background: '#0f1
 const footerTitleStyle = { margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' };
 const footerLinkListStyle = { display: 'flex', flexDirection: 'column' as const, gap: '8px', alignItems: 'flex-start' as const };
 const footerLinkButton = { background: 'none', border: 'none', padding: 0, color: '#64748b', fontSize: '0.85rem', cursor: 'pointer', textAlign: 'left' as const };
-const footerHqButton = { ...footerLinkButton, textDecoration: 'underline', textUnderlineOffset: '4px', fontWeight: 700 };
+const footerHqLink = {
+  color: '#4f46e5',
+  fontSize: '0.85rem',
+  textDecoration: 'underline',
+  textUnderlineOffset: '4px',
+  fontWeight: 700,
+  transition: 'color 0.18s ease',
+};

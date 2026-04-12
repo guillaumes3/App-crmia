@@ -7,8 +7,13 @@ import {
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const isHqLoginRoute = pathname === "/hq/login";
   const isHqRoute = pathname.startsWith("/hq");
   const isBackofficeRoute = pathname.startsWith("/backoffice");
+
+  if (isHqLoginRoute) {
+    return NextResponse.next();
+  }
 
   if (!isHqRoute && !isBackofficeRoute) {
     return NextResponse.next();
