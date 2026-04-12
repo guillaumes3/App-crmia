@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildPrefilledLinesFromRupture,
   checkAutoReorder,
@@ -22,6 +22,7 @@ import { setActiveUniverse } from "@/app/utils/universeState";
 
 type ActionState = "oneClickDraft" | "manualDraft" | "linkArticle" | null;
 type GlobalActionKey = "add" | "import" | "export" | "sort";
+type SortDirection = "asc" | "desc";
 
 const euroFormat = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -45,15 +46,31 @@ export default function FournisseursPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [actionState, setActionState] = useState<ActionState>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isCreateSupplierOpen, setIsCreateSupplierOpen] = useState(false);
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
 
   const [menuFournisseurId, setMenuFournisseurId] = useState<string | null>(null);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [orderLines, setOrderLines] = useState<DraftOrderLineInput[]>([]);
   const [hoveredActionButton, setHoveredActionButton] = useState<GlobalActionKey | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const [linkArticleId, setLinkArticleId] = useState("");
   const [linkSku, setLinkSku] = useState("");
   const [linkPrix, setLinkPrix] = useState("");
+  const [createNom, setCreateNom] = useState("");
+  const [createAdresseRue, setCreateAdresseRue] = useState("");
+  const [createAdresseVille, setCreateAdresseVille] = useState("");
+  const [createAdresseCp, setCreateAdresseCp] = useState("");
+  const [createTelephone, setCreateTelephone] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createFrancoPortHt, setCreateFrancoPortHt] = useState("0");
+  const [createDelaiLivraison, setCreateDelaiLivraison] = useState("0");
+  const [createCategorieProduits, setCreateCategorieProduits] = useState("");
+  const [createModeReapproAuto, setCreateModeReapproAuto] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(false);
 
   useEffect(() => {
@@ -128,17 +145,21 @@ export default function FournisseursPage() {
 
   const filteredFournisseurs = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    if (!normalizedSearch) {
-      return fournisseurs;
-    }
+    const filtered = normalizedSearch
+      ? fournisseurs.filter((fournisseur) => {
+          const nom = fournisseur.nom.toLowerCase();
+          const categorie = (fournisseur.categorie_produits ?? "").toLowerCase();
+          const etat = fournisseur.etat_commandes_en_cours.toLowerCase();
+          return nom.includes(normalizedSearch) || categorie.includes(normalizedSearch) || etat.includes(normalizedSearch);
+        })
+      : [...fournisseurs];
 
-    return fournisseurs.filter((fournisseur) => {
-      const nom = fournisseur.nom.toLowerCase();
-      const categorie = (fournisseur.categorie_produits ?? "").toLowerCase();
-      const etat = fournisseur.etat_commandes_en_cours.toLowerCase();
-      return nom.includes(normalizedSearch) || categorie.includes(normalizedSearch) || etat.includes(normalizedSearch);
-    });
-  }, [fournisseurs, search]);
+    filtered.sort((a, b) =>
+      sortDirection === "asc" ? a.nom.localeCompare(b.nom, "fr-FR") : b.nom.localeCompare(a.nom, "fr-FR"),
+    );
+
+    return filtered;
+  }, [fournisseurs, search, sortDirection]);
 
   const reportYear = new Date().getFullYear();
 
@@ -433,19 +454,175 @@ export default function FournisseursPage() {
   };
 
   const handleAddSupplier = () => {
-    console.log("add");
+    setActionError(null);
+    resetCreateSupplierForm();
+    setIsCreateSupplierOpen(true);
   };
 
   const handleImport = () => {
-    console.log("import");
+    setActionError(null);
+    importInputRef.current?.click();
+  };
+
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    setActionError(null);
+
+    try {
+      const content = await file.text();
+      console.log("fournisseurs-import-csv", { filename: file.name, content });
+      setInfoMessage(`Import CSV pret: ${file.name} (${content.split(/\r?\n/).filter(Boolean).length} lignes detectees).`);
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setIsImporting(false);
+      event.target.value = "";
+    }
   };
 
   const handleExport = () => {
-    console.log("export");
+    if (filteredFournisseurs.length === 0) {
+      setActionError("Aucun fournisseur disponible a exporter.");
+      return;
+    }
+
+    setIsExporting(true);
+    setActionError(null);
+
+    try {
+      const header = [
+        "id",
+        "nom",
+        "categorie_produits",
+        "contact_email",
+        "telephone",
+        "franco_port_ht",
+        "delai_livraison_jours",
+        "mode_reappro_auto",
+        "commandes_en_cours",
+      ];
+
+      const lines = filteredFournisseurs.map((fournisseur) => {
+        return [
+          fournisseur.id,
+          fournisseur.nom,
+          fournisseur.categorie_produits ?? "",
+          fournisseur.contact_email ?? "",
+          fournisseur.telephone ?? "",
+          String(toNumber(fournisseur.franco_port_ht)),
+          String(toNumber(fournisseur.delai_livraison_jours)),
+          fournisseur.mode_reappro_auto ? "oui" : "non",
+          String(fournisseur.commandes_en_cours),
+        ]
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(",");
+      });
+
+      const csv = [header.join(","), ...lines].join("\n");
+      downloadCsv(csv, `fournisseurs_${new Date().toISOString().slice(0, 10)}.csv`);
+      setInfoMessage("Export CSV fournisseurs genere.");
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleSort = () => {
-    console.log("sort");
+    setSortDirection((current) => {
+      const next = current === "asc" ? "desc" : "asc";
+      setInfoMessage(`Tri ${next === "asc" ? "A-Z" : "Z-A"} applique a la liste.`);
+      return next;
+    });
+  };
+
+  const resetCreateSupplierForm = () => {
+    setCreateNom("");
+    setCreateAdresseRue("");
+    setCreateAdresseVille("");
+    setCreateAdresseCp("");
+    setCreateTelephone("");
+    setCreateEmail("");
+    setCreateFrancoPortHt("0");
+    setCreateDelaiLivraison("0");
+    setCreateCategorieProduits("");
+    setCreateModeReapproAuto(false);
+  };
+
+  const handleCloseCreateSupplier = () => {
+    if (creatingSupplier) {
+      return;
+    }
+
+    setIsCreateSupplierOpen(false);
+  };
+
+  const handleCreateSupplier = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!organisationId) {
+      setActionError("Organisation introuvable. Reessayez.");
+      return;
+    }
+
+    const nom = createNom.trim();
+    if (!nom) {
+      setActionError("Le nom du fournisseur est obligatoire.");
+      return;
+    }
+
+    setCreatingSupplier(true);
+    setActionError(null);
+
+    try {
+      const baseInsertPayload = {
+        organisation_id: organisationId,
+        nom,
+        categorie_produits: createCategorieProduits.trim() || null,
+        contact_email: createEmail.trim() || null,
+        telephone: createTelephone.trim() || null,
+        franco_port_ht: Math.max(0, toNumber(createFrancoPortHt)),
+        delai_livraison_jours: Math.max(0, Math.floor(toNumber(createDelaiLivraison))),
+        mode_reappro_auto: createModeReapproAuto,
+      };
+
+      const insertWithAddressPayload = {
+        ...baseInsertPayload,
+        adresse_rue: createAdresseRue.trim() || null,
+        adresse_ville: createAdresseVille.trim() || null,
+        adresse_cp: createAdresseCp.trim() || null,
+      };
+
+      let insertResult = await supabase.from("fournisseurs").insert([insertWithAddressPayload]).select("id").single();
+
+      if (insertResult.error && isMissingAddressColumnsError(insertResult.error)) {
+        insertResult = await supabase.from("fournisseurs").insert([baseInsertPayload]).select("id").single();
+      }
+
+      if (insertResult.error) {
+        throw insertResult.error;
+      }
+
+      const fournisseursRows = await getFournisseursByOrganisation(organisationId);
+      setFournisseurs(fournisseursRows);
+
+      const createdFournisseurId =
+        typeof insertResult.data?.id === "string"
+          ? insertResult.data.id
+          : fournisseursRows.find((fournisseur) => fournisseur.nom.toLowerCase() === nom.toLowerCase())?.id ?? null;
+
+      setSelectedFournisseurId(createdFournisseurId ?? fournisseursRows[0]?.id ?? null);
+      setIsCreateSupplierOpen(false);
+      resetCreateSupplierForm();
+      setInfoMessage("Fournisseur cree avec succes.");
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setCreatingSupplier(false);
+    }
   };
 
   if (loading) {
@@ -468,6 +645,136 @@ export default function FournisseursPage() {
       {infoMessage ? <div style={infoBannerStyle}>{infoMessage}</div> : null}
       {actionError ? <div style={errorBannerStyle}>{actionError}</div> : null}
 
+      {isCreateSupplierOpen ? (
+        <div style={overlayStyle} role="dialog" aria-modal="true" aria-label="Creation fournisseur">
+          <section style={createSupplierModalStyle}>
+            <div style={createSupplierModalHeaderStyle}>
+              <div>
+                <h2 style={createSupplierModalTitleStyle}>Nouveau fournisseur</h2>
+                <p style={createSupplierModalSubtitleStyle}>Completez la fiche puis validez pour ajouter le fournisseur.</p>
+              </div>
+              <button type="button" style={createSupplierModalCloseStyle} onClick={handleCloseCreateSupplier} disabled={creatingSupplier}>
+                Fermer
+              </button>
+            </div>
+
+            <form style={createSupplierFormStyle} onSubmit={handleCreateSupplier}>
+              <label style={modalFieldWrapStyle}>
+                <span style={modalFieldLabelStyle}>Nom *</span>
+                <input
+                  required
+                  value={createNom}
+                  onChange={(event) => setCreateNom(event.target.value)}
+                  placeholder="Ex: Metro Pro"
+                  style={modalFieldInputStyle}
+                />
+              </label>
+
+              <div style={createAddressGridStyle}>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Rue</span>
+                  <input
+                    value={createAdresseRue}
+                    onChange={(event) => setCreateAdresseRue(event.target.value)}
+                    placeholder="Adresse complete"
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Ville</span>
+                  <input
+                    value={createAdresseVille}
+                    onChange={(event) => setCreateAdresseVille(event.target.value)}
+                    placeholder="Ville"
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>CP</span>
+                  <input
+                    value={createAdresseCp}
+                    onChange={(event) => setCreateAdresseCp(event.target.value)}
+                    placeholder="75000"
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+              </div>
+
+              <div style={createSupplierGridStyle}>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Telephone</span>
+                  <input
+                    value={createTelephone}
+                    onChange={(event) => setCreateTelephone(event.target.value)}
+                    placeholder="+33..."
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Email de contact</span>
+                  <input
+                    type="email"
+                    value={createEmail}
+                    onChange={(event) => setCreateEmail(event.target.value)}
+                    placeholder="contact@fournisseur.fr"
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Franco de port HT</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={createFrancoPortHt}
+                    onChange={(event) => setCreateFrancoPortHt(event.target.value)}
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Delai moyen (jours)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={createDelaiLivraison}
+                    onChange={(event) => setCreateDelaiLivraison(event.target.value)}
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={modalFieldWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Categorie de produits</span>
+                  <input
+                    value={createCategorieProduits}
+                    onChange={(event) => setCreateCategorieProduits(event.target.value)}
+                    placeholder="Alimentaire, Packaging..."
+                    style={modalFieldInputStyle}
+                  />
+                </label>
+                <label style={toggleWrapStyle}>
+                  <span style={modalFieldLabelStyle}>Mode reappro-auto</span>
+                  <button
+                    type="button"
+                    onClick={() => setCreateModeReapproAuto((current) => !current)}
+                    style={getToggleButtonStyle(createModeReapproAuto)}
+                  >
+                    {createModeReapproAuto ? "Oui" : "Non"}
+                  </button>
+                </label>
+              </div>
+
+              <div style={createSupplierActionsStyle}>
+                <button type="button" style={secondaryActionStyle} onClick={handleCloseCreateSupplier} disabled={creatingSupplier}>
+                  Annuler
+                </button>
+                <button type="submit" style={getPrimaryButtonStyle(creatingSupplier)} disabled={creatingSupplier}>
+                  {creatingSupplier ? "Creation..." : "Creer le fournisseur"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
       <div style={getDualPaneStyle(isCompactLayout)}>
         <aside style={leftPaneStyle}>
           <div style={leftPaneHeaderStyle}>
@@ -489,32 +796,35 @@ export default function FournisseursPage() {
             <div style={secondaryActionsRowStyle}>
               <button
                 type="button"
-                style={getSecondaryActionButtonStyle(hoveredActionButton === "import")}
+                style={getSecondaryActionButtonStyle(hoveredActionButton === "import", isImporting)}
                 onClick={handleImport}
+                disabled={isImporting}
                 onMouseEnter={() => setHoveredActionButton("import")}
                 onMouseLeave={() => setHoveredActionButton(null)}
               >
-                ↓ Importer CSV
+                {isImporting ? "Import..." : "↓ Importer CSV"}
               </button>
               <button
                 type="button"
-                style={getSecondaryActionButtonStyle(hoveredActionButton === "export")}
+                style={getSecondaryActionButtonStyle(hoveredActionButton === "export", isExporting)}
                 onClick={handleExport}
+                disabled={isExporting}
                 onMouseEnter={() => setHoveredActionButton("export")}
                 onMouseLeave={() => setHoveredActionButton(null)}
               >
-                ↑ Exporter Excel
+                {isExporting ? "Export..." : "↑ Exporter CSV"}
               </button>
               <button
                 type="button"
-                style={getSecondaryActionButtonStyle(hoveredActionButton === "sort")}
+                style={getSecondaryActionButtonStyle(hoveredActionButton === "sort", false)}
                 onClick={handleSort}
                 onMouseEnter={() => setHoveredActionButton("sort")}
                 onMouseLeave={() => setHoveredActionButton(null)}
               >
-                ⇅ Trier AZ/ZA
+                {sortDirection === "asc" ? "⇅ Trier A-Z" : "⇅ Trier Z-A"}
               </button>
             </div>
+            <input ref={importInputRef} type="file" accept=".csv,text/csv" onChange={handleImportFileChange} style={hiddenFileInputStyle} />
           </div>
 
           <input
@@ -1050,6 +1360,28 @@ function getPunctualityHint(score: number): string {
   return "Surveillez ce fournisseur: retards frequents sur les dernieres livraisons.";
 }
 
+function isMissingAddressColumnsError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes("adresse_rue") || message.includes("adresse_ville") || message.includes("adresse_cp");
+}
+
+function downloadCsv(content: string, filename: string): void {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1500);
+}
+
 const pageStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -1094,6 +1426,122 @@ const errorBannerStyle: React.CSSProperties = {
   padding: "10px 12px",
   fontSize: "0.86rem",
   fontWeight: 700,
+};
+
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(15, 23, 42, 0.45)",
+  backdropFilter: "blur(3px)",
+  zIndex: 70,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "18px",
+};
+
+const createSupplierModalStyle: React.CSSProperties = {
+  width: "min(980px, 100%)",
+  maxHeight: "85vh",
+  overflowY: "auto",
+  background: "#ffffff",
+  borderRadius: "20px",
+  border: "1px solid #dbe3ee",
+  boxShadow: "0 24px 48px -26px rgba(15, 23, 42, 0.55)",
+  padding: "18px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "14px",
+};
+
+const createSupplierModalHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
+const createSupplierModalTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontWeight: 900,
+  fontSize: "1.08rem",
+};
+
+const createSupplierModalSubtitleStyle: React.CSSProperties = {
+  margin: "4px 0 0 0",
+  color: "#64748b",
+  fontSize: "0.82rem",
+};
+
+const createSupplierModalCloseStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  background: "#ffffff",
+  color: "#0f172a",
+  fontSize: "0.8rem",
+  fontWeight: 800,
+  padding: "8px 11px",
+  cursor: "pointer",
+};
+
+const createSupplierFormStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "11px",
+};
+
+const createAddressGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "8px",
+};
+
+const createSupplierGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: "8px",
+};
+
+const modalFieldWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+};
+
+const modalFieldLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: "0.72rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+  color: "#64748b",
+  fontWeight: 800,
+};
+
+const modalFieldInputStyle: React.CSSProperties = {
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  padding: "8px 10px",
+  fontSize: "0.84rem",
+  color: "#0f172a",
+  outline: "none",
+};
+
+const toggleWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  justifyContent: "flex-end",
+};
+
+const createSupplierActionsStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  alignItems: "center",
+  gap: "9px",
+  flexWrap: "wrap",
+  marginTop: "4px",
 };
 
 const leftPaneStyle: React.CSSProperties = {
@@ -1148,6 +1596,10 @@ const secondaryActionsRowStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   gap: "6px",
+};
+
+const hiddenFileInputStyle: React.CSSProperties = {
+  display: "none",
 };
 
 const searchInputStyle: React.CSSProperties = {
@@ -1893,7 +2345,7 @@ function getAddSupplierButtonStyle(isHovered: boolean): React.CSSProperties {
   };
 }
 
-function getSecondaryActionButtonStyle(isHovered: boolean): React.CSSProperties {
+function getSecondaryActionButtonStyle(isHovered: boolean, disabled: boolean): React.CSSProperties {
   return {
     border: "1px solid #cbd5e1",
     borderRadius: "10px",
@@ -1902,7 +2354,8 @@ function getSecondaryActionButtonStyle(isHovered: boolean): React.CSSProperties 
     fontSize: "0.8rem",
     fontWeight: 800,
     padding: "8px 10px",
-    cursor: "pointer",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.58 : 1,
     transition: "all 0.16s ease",
   };
 }
@@ -2003,6 +2456,21 @@ function getDeliveryProgressFillStyle(score: number): React.CSSProperties {
     height: "100%",
     borderRadius: "999px",
     background: "linear-gradient(120deg, #22c55e 0%, #2563eb 100%)",
+  };
+}
+
+function getToggleButtonStyle(enabled: boolean): React.CSSProperties {
+  return {
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    background: enabled ? "linear-gradient(135deg, #4f46e5 0%, #312e81 100%)" : "#ffffff",
+    color: enabled ? "#ffffff" : "#0f172a",
+    fontSize: "0.8rem",
+    fontWeight: 800,
+    height: "36px",
+    padding: "0 12px",
+    cursor: "pointer",
+    textAlign: "left",
   };
 }
 
