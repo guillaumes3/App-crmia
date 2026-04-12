@@ -21,6 +21,7 @@ import { getOrganisationId, isKipiloteStaff } from "@/app/types/auth";
 import { setActiveUniverse } from "@/app/utils/universeState";
 
 type ActionState = "oneClickDraft" | "manualDraft" | "linkArticle" | null;
+type GlobalActionKey = "add" | "import" | "export" | "sort";
 
 const euroFormat = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -48,6 +49,7 @@ export default function FournisseursPage() {
   const [menuFournisseurId, setMenuFournisseurId] = useState<string | null>(null);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [orderLines, setOrderLines] = useState<DraftOrderLineInput[]>([]);
+  const [hoveredActionButton, setHoveredActionButton] = useState<GlobalActionKey | null>(null);
 
   const [linkArticleId, setLinkArticleId] = useState("");
   const [linkSku, setLinkSku] = useState("");
@@ -430,6 +432,22 @@ export default function FournisseursPage() {
     setOrderLines((current) => current.filter((_, lineIndex) => lineIndex !== index));
   };
 
+  const handleAddSupplier = () => {
+    console.log("add");
+  };
+
+  const handleImport = () => {
+    console.log("import");
+  };
+
+  const handleExport = () => {
+    console.log("export");
+  };
+
+  const handleSort = () => {
+    console.log("sort");
+  };
+
   if (loading) {
     return <section style={loadingCardStyle}>Chargement du module fournisseurs...</section>;
   }
@@ -455,6 +473,48 @@ export default function FournisseursPage() {
           <div style={leftPaneHeaderStyle}>
             <h2 style={paneTitleStyle}>Annuaire fournisseurs</h2>
             <p style={paneSubtitleStyle}>{fournisseurs.length} fournisseurs rattaches a votre organisation</p>
+          </div>
+
+          <div style={leftPaneActionsWrapStyle}>
+            <button
+              type="button"
+              style={getAddSupplierButtonStyle(hoveredActionButton === "add")}
+              onClick={handleAddSupplier}
+              onMouseEnter={() => setHoveredActionButton("add")}
+              onMouseLeave={() => setHoveredActionButton(null)}
+            >
+              + Ajouter
+            </button>
+
+            <div style={secondaryActionsRowStyle}>
+              <button
+                type="button"
+                style={getSecondaryActionButtonStyle(hoveredActionButton === "import")}
+                onClick={handleImport}
+                onMouseEnter={() => setHoveredActionButton("import")}
+                onMouseLeave={() => setHoveredActionButton(null)}
+              >
+                ↓ Importer CSV
+              </button>
+              <button
+                type="button"
+                style={getSecondaryActionButtonStyle(hoveredActionButton === "export")}
+                onClick={handleExport}
+                onMouseEnter={() => setHoveredActionButton("export")}
+                onMouseLeave={() => setHoveredActionButton(null)}
+              >
+                ↑ Exporter Excel
+              </button>
+              <button
+                type="button"
+                style={getSecondaryActionButtonStyle(hoveredActionButton === "sort")}
+                onClick={handleSort}
+                onMouseEnter={() => setHoveredActionButton("sort")}
+                onMouseLeave={() => setHoveredActionButton(null)}
+              >
+                ⇅ Trier AZ/ZA
+              </button>
+            </div>
           </div>
 
           <input
@@ -1076,6 +1136,18 @@ const paneSubtitleStyle: React.CSSProperties = {
   margin: 0,
   color: "#64748b",
   fontSize: "0.8rem",
+};
+
+const leftPaneActionsWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+};
+
+const secondaryActionsRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "6px",
 };
 
 const searchInputStyle: React.CSSProperties = {
@@ -1803,6 +1875,36 @@ function getReportingGridStyle(isCompactLayout: boolean): React.CSSProperties {
 
 function getSupplierRowStyle(isSelected: boolean): React.CSSProperties {
   return isSelected ? { ...supplierRowBaseStyle, ...supplierRowSelectedStyle } : supplierRowBaseStyle;
+}
+
+function getAddSupplierButtonStyle(isHovered: boolean): React.CSSProperties {
+  return {
+    border: "none",
+    borderRadius: "10px",
+    background: isHovered ? "linear-gradient(135deg, #4338ca 0%, #3730a3 100%)" : "linear-gradient(135deg, #4f46e5 0%, #312e81 100%)",
+    color: "#ffffff",
+    fontSize: "0.8rem",
+    fontWeight: 800,
+    padding: "10px 12px",
+    cursor: "pointer",
+    boxShadow: isHovered ? "0 10px 20px -14px rgba(79, 70, 229, 0.75)" : "0 8px 16px -14px rgba(79, 70, 229, 0.6)",
+    transition: "all 0.16s ease",
+    transform: isHovered ? "translateY(-1px)" : "translateY(0px)",
+  };
+}
+
+function getSecondaryActionButtonStyle(isHovered: boolean): React.CSSProperties {
+  return {
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    background: isHovered ? "#eef2ff" : "#ffffff",
+    color: isHovered ? "#312e81" : "#0f172a",
+    fontSize: "0.8rem",
+    fontWeight: 800,
+    padding: "8px 10px",
+    cursor: "pointer",
+    transition: "all 0.16s ease",
+  };
 }
 
 function getSuggestionButtonStyle(disabled: boolean): React.CSSProperties {
