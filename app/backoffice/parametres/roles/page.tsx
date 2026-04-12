@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { supabase } from "../../../utils/supabase";
 import { getOrganisationId, isKipiloteStaff } from "@/app/types/auth";
 
@@ -82,22 +81,24 @@ export default function GestionRoles() {
   };
 
   return (
-    <div style={containerStyle}>
-      <Link href="/backoffice/parametres" style={backLinkStyle}>
-        Retour aux parametres
-      </Link>
+    <div style={pageStyle}>
+      <header style={pageHeaderStyle}>
+        <div>
+          <h1 style={pageTitleStyle}>Roles & permissions</h1>
+          <p style={pageSubtitleStyle}>Definissez des profils d acces adaptes a chaque collaborateur.</p>
+        </div>
+      </header>
 
-      <h1 style={titlePageStyle}>Configuration des Roles</h1>
-      <p style={subtitleStyle}>Definissez les acces personnalises pour votre equipe.</p>
-
-      <div style={cardStyle}>
-        <label style={labelStyle}>Nom du role</label>
-        <input
-          placeholder="Exemple: Magasinier, Commercial Junior..."
-          value={nomRole}
-          onChange={(event) => setNomRole(event.target.value)}
-          style={inputStyle}
-        />
+      <div style={panelStyle}>
+        <div style={fieldWrapStyle}>
+          <label style={labelStyle}>Nom du role</label>
+          <input
+            placeholder="Exemple: Magasinier, Commercial Junior..."
+            value={nomRole}
+            onChange={(event) => setNomRole(event.target.value)}
+            style={inputStyle}
+          />
+        </div>
 
         <div style={gridPermissionsStyle}>
           {(Object.keys(permissions) as Array<keyof PermissionsState>).map((permissionKey) => (
@@ -121,93 +122,102 @@ export default function GestionRoles() {
   );
 }
 
-const containerStyle: React.CSSProperties = {
-  animation: "fadeIn 0.3s ease-in-out",
+const cardShadow = "0 16px 32px -25px rgba(15, 23, 42, 0.28)";
+
+const pageStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "16px",
 };
 
-const backLinkStyle: React.CSSProperties = {
-  color: "#6366f1",
-  textDecoration: "none",
-  fontSize: "0.8rem",
-  fontWeight: 700,
-  display: "block",
-  marginBottom: "15px",
+const pageHeaderStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
+  borderRadius: "20px",
+  padding: "22px",
+  boxShadow: cardShadow,
 };
 
-const titlePageStyle: React.CSSProperties = {
+const pageTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#ffffff",
   fontWeight: 900,
-  fontSize: "1.5rem",
-  marginBottom: "10px",
+  fontSize: "1.52rem",
 };
 
-const subtitleStyle: React.CSSProperties = {
-  color: "#64748b",
-  marginBottom: "20px",
+const pageSubtitleStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#cbd5e1",
 };
 
-const cardStyle: React.CSSProperties = {
-  background: "white",
-  padding: "30px",
-  borderRadius: "16px",
+const panelStyle: React.CSSProperties = {
   border: "1px solid #e2e8f0",
-  maxWidth: "600px",
+  borderRadius: "20px",
+  background: "#ffffff",
+  padding: "16px",
+  boxShadow: cardShadow,
+  display: "flex",
+  flexDirection: "column",
+  gap: "14px",
+};
+
+const fieldWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
 };
 
 const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  fontSize: "0.75rem",
+  fontSize: "0.72rem",
   fontWeight: 800,
   color: "#64748b",
   textTransform: "uppercase",
+  letterSpacing: "0.06em",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
+  padding: "10px 12px",
+  borderRadius: "12px",
   border: "1px solid #e2e8f0",
-  marginBottom: "25px",
   outline: "none",
-  fontSize: "1rem",
+  fontSize: "0.9rem",
   boxSizing: "border-box",
 };
 
 const gridPermissionsStyle: React.CSSProperties = {
   display: "grid",
-  gap: "10px",
-  marginBottom: "30px",
+  gap: "12px",
 };
 
 const permissionLineStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "12px 15px",
+  padding: "12px 14px",
   background: "#f8fafc",
-  borderRadius: "12px",
-  border: "1px solid #f1f5f9",
+  borderRadius: "16px",
+  border: "1px solid #e2e8f0",
 };
 
 const permissionLabelStyle: React.CSSProperties = {
   fontSize: "0.9rem",
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
 const checkboxStyle: React.CSSProperties = {
   width: "20px",
   height: "20px",
   cursor: "pointer",
-  accentColor: "#6366f1",
+  accentColor: "#4338ca",
 };
 
 const submitButtonStyle: React.CSSProperties = {
-  background: "#6366f1",
+  background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
   color: "white",
-  border: "none",
-  padding: "14px 25px",
+  border: "1px solid rgba(255,255,255,0.12)",
+  padding: "12px 16px",
   borderRadius: "12px",
-  fontWeight: 700,
+  fontWeight: 900,
   cursor: "pointer",
   width: "100%",
   fontSize: "0.9rem",

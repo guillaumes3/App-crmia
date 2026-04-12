@@ -42,7 +42,7 @@
 }
 
 .exportButton {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  background: linear-gradient(135deg, #4338ca 0%, #312e81 100%);
   color: white;
   border: none;
   border-radius: 12px;

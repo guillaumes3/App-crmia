@@ -179,16 +179,17 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
 
   const logoutButtonStyle: React.CSSProperties = useMemo(
     () => ({
-      border: '1px solid #cbd5e1',
-      background: isLogoutHovered ? '#eef2ff' : '#ffffff',
-      color: '#334155',
-      borderRadius: '10px',
+      border: '1px solid rgba(226,232,240,0.35)',
+      background: isLogoutHovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+      color: '#ffffff',
+      borderRadius: '12px',
       padding: '10px 14px',
-      fontWeight: 700,
+      fontWeight: 800,
       fontSize: '0.8rem',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
       whiteSpace: 'nowrap',
+      backdropFilter: 'blur(4px)',
     }),
     [isLogoutHovered],
   );
@@ -198,15 +199,15 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
     const hovered = hoveredPath === path;
 
     return {
-      color: active || hovered ? '#4f46e5' : '#475569',
+      color: '#ffffff',
       textDecoration: 'none',
-      fontWeight: 700,
+      fontWeight: 800,
       fontSize: compact ? '0.95rem' : '0.86rem',
       letterSpacing: '0.01em',
       padding: compact ? '12px 14px' : '10px 12px',
       borderRadius: compact ? '12px' : '10px',
-      background: active ? '#eef2ff' : hovered ? '#f8fafc' : 'transparent',
-      boxShadow: active || hovered ? 'inset 0 -2px 0 #6366f1' : 'inset 0 -2px 0 transparent',
+      background: active ? 'rgba(255,255,255,0.18)' : hovered ? 'rgba(255,255,255,0.1)' : 'transparent',
+      border: active || hovered ? '1px solid rgba(226,232,240,0.35)' : '1px solid transparent',
       transition: 'all 0.2s ease',
       display: 'flex',
       alignItems: 'center',
@@ -358,21 +359,22 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
 
 const pageWrapStyle: React.CSSProperties = {
   minHeight: '100vh',
-  background: '#f8fafc',
+  background: '#eef2ff',
 };
 
 const headerStyle: React.CSSProperties = {
   position: 'sticky',
   top: 0,
   zIndex: 1200,
-  background: '#ffffff',
-  borderBottom: '1px solid #e2e8f0',
+  background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+  borderBottom: '1px solid rgba(226,232,240,0.15)',
   minHeight: '76px',
   padding: '0 20px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: '20px',
+  boxShadow: '0 16px 32px -25px rgba(15, 23, 42, 0.28)',
 };
 
 const logoStyle: React.CSSProperties = {
@@ -383,11 +385,11 @@ const logoStyle: React.CSSProperties = {
   fontSize: '1.45rem',
   fontWeight: 800,
   letterSpacing: '-0.06em',
-  color: '#0f172a',
+  color: '#ffffff',
 };
 
 const logoDotStyle: React.CSSProperties = {
-  color: '#6366f1',
+  color: '#a5b4fc',
 };
 
 const brandWrapStyle: React.CSSProperties = {
@@ -401,9 +403,9 @@ const organisationBadgeStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  border: '1px solid #dbeafe',
-  background: '#eff6ff',
-  color: '#1d4ed8',
+  border: '1px solid rgba(226,232,240,0.35)',
+  background: 'rgba(255,255,255,0.1)',
+  color: '#ffffff',
   borderRadius: '999px',
   padding: '6px 12px',
   fontSize: '0.74rem',
@@ -434,7 +436,7 @@ const profileZoneStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '12px',
-  borderLeft: '1px solid #e2e8f0',
+  borderLeft: '1px solid rgba(226,232,240,0.2)',
   paddingLeft: '12px',
 };
 
@@ -448,7 +450,7 @@ const avatarStyle: React.CSSProperties = {
   width: '38px',
   height: '38px',
   borderRadius: '999px',
-  background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+  background: 'linear-gradient(135deg, #312e81, #4338ca)',
   color: '#ffffff',
   display: 'flex',
   alignItems: 'center',
@@ -465,7 +467,7 @@ const userTextStyle: React.CSSProperties = {
 };
 
 const userNameStyle: React.CSSProperties = {
-  color: '#0f172a',
+  color: '#ffffff',
   fontSize: '0.8rem',
   fontWeight: 700,
   maxWidth: '160px',
@@ -475,7 +477,7 @@ const userNameStyle: React.CSSProperties = {
 };
 
 const userRoleStyle: React.CSSProperties = {
-  color: '#6366f1',
+  color: '#c7d2fe',
   fontSize: '0.68rem',
   fontWeight: 700,
   letterSpacing: '0.04em',
@@ -492,7 +494,7 @@ const mobileAvatarStyle: React.CSSProperties = {
   width: '34px',
   height: '34px',
   borderRadius: '999px',
-  background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+  background: 'linear-gradient(135deg, #312e81, #4338ca)',
   color: '#ffffff',
   display: 'flex',
   alignItems: 'center',
@@ -502,9 +504,9 @@ const mobileAvatarStyle: React.CSSProperties = {
 };
 
 const burgerButtonStyle: React.CSSProperties = {
-  border: '1px solid #cbd5e1',
-  background: '#ffffff',
-  color: '#334155',
+  border: '1px solid rgba(226,232,240,0.35)',
+  background: 'rgba(255,255,255,0.08)',
+  color: '#ffffff',
   borderRadius: '10px',
   width: '42px',
   height: '42px',
@@ -531,9 +533,9 @@ const drawerStyle = (open: boolean): React.CSSProperties => ({
   right: 0,
   width: 'min(82vw, 320px)',
   height: '100vh',
-  background: '#ffffff',
+  background: '#0f172a',
   boxShadow: '-10px 0 35px rgba(15, 23, 42, 0.2)',
-  borderLeft: '1px solid #e2e8f0',
+  borderLeft: '1px solid rgba(226,232,240,0.25)',
   zIndex: 1300,
   transform: open ? 'translateX(0)' : 'translateX(102%)',
   transition: 'transform 0.25s ease',
@@ -547,7 +549,7 @@ const drawerTopStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '10px',
-  borderBottom: '1px solid #e2e8f0',
+  borderBottom: '1px solid rgba(226,232,240,0.2)',
   paddingBottom: '14px',
 };
 

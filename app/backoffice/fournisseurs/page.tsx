@@ -1025,7 +1025,7 @@ const supplierActionsStyle: React.CSSProperties = {
 
 const primaryActionStyle: React.CSSProperties = {
   border: "none",
-  background: "linear-gradient(135deg, #334155, #4f46e5)",
+  background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
   color: "#ffffff",
   borderRadius: "12px",
   padding: "10px 14px",
@@ -1540,7 +1540,7 @@ function getPrimaryButtonStyle(disabled: boolean): React.CSSProperties {
 
   return {
     border: "none",
-    background: "linear-gradient(135deg, #1e293b, #4338ca)",
+    background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
     color: "#ffffff",
     borderRadius: "12px",
     padding: "10px 14px",

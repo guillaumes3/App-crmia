@@ -695,7 +695,7 @@ const dropZoneStyle: React.CSSProperties = {
 };
 
 const dropZoneActiveStyle: React.CSSProperties = {
-  borderColor: "#6366f1",
+  borderColor: "#4338ca",
   background: "#e0e7ff",
 };
 
@@ -706,7 +706,7 @@ const dropZoneTitleStyle: React.CSSProperties = {
 };
 
 const dropZoneSubtitleStyle: React.CSSProperties = {
-  color: "#4f46e5",
+  color: "#312e81",
   fontSize: "0.82rem",
 };
 
@@ -718,7 +718,7 @@ const importButtonStyle: React.CSSProperties = {
   padding: "11px 18px",
   borderRadius: "12px",
   border: "none",
-  background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+  background: "linear-gradient(135deg, #4338ca, #312e81)",
   color: "#ffffff",
   fontSize: "0.9rem",
   fontWeight: 700,
@@ -758,7 +758,7 @@ const progressTrackStyle: React.CSSProperties = {
 const progressFillStyle: React.CSSProperties = {
   height: "100%",
   borderRadius: "999px",
-  background: "linear-gradient(90deg, #6366f1, #4f46e5)",
+  background: "linear-gradient(90deg, #4338ca, #312e81)",
   transition: "width 0.2s ease",
 };
 

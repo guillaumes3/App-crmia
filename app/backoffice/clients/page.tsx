@@ -277,12 +277,12 @@ export default function ClientsPage() {
         <div style={headerActionsStyle}>
           <button
             type="button"
-            style={{ ...secondaryButtonStyle, ...(showFilters ? secondaryButtonActiveStyle : {}) }}
+            style={{ ...headerGhostButtonStyle, ...(showFilters ? headerGhostButtonActiveStyle : {}) }}
             onClick={() => setShowFilters((current) => !current)}
           >
             Filtres
           </button>
-          <button type="button" style={secondaryButtonStyle} onClick={handleExportCsv}>
+          <button type="button" style={headerGhostButtonStyle} onClick={handleExportCsv}>
             Export
           </button>
           <button
@@ -302,6 +302,25 @@ export default function ClientsPage() {
       {infoMessage ? <div style={successBannerStyle}>{infoMessage}</div> : null}
       {actionError ? <div style={warningBannerStyle}>{actionError}</div> : null}
       {saveError ? <div style={warningBannerStyle}>{saveError}</div> : null}
+
+      <section style={kpiGridStyle}>
+        <article style={kpiCardStyle}>
+          <span style={kpiLabelStyle}>Revenus filtres</span>
+          <strong style={kpiValueStyle}>{formatEuros.format(kpis.totalRevenue)}</strong>
+        </article>
+        <article style={kpiCardStyle}>
+          <span style={kpiLabelStyle}>Clients VIP</span>
+          <strong style={kpiValueStyle}>{kpis.vipClients}</strong>
+        </article>
+        <article style={kpiCardStyle}>
+          <span style={kpiLabelStyle}>A relancer</span>
+          <strong style={kpiValueStyle}>{kpis.toRevive}</strong>
+        </article>
+        <article style={kpiCardStyle}>
+          <span style={kpiLabelStyle}>Panier moyen</span>
+          <strong style={kpiValueStyle}>{formatEuros.format(kpis.avgBasket)}</strong>
+        </article>
+      </section>
 
       <div style={getDualPaneStyle(isCompactLayout)}>
         <section style={leftPaneStyle}>
@@ -711,13 +730,16 @@ const palette = {
   slate300: "#cbd5e1",
   slate200: "#e2e8f0",
   indigoSoft: "#e0e7ff",
-  indigoMain: "#6366f1",
-  indigoDark: "#4338ca",
+  indigoMain: "#4338ca",
+  indigoDark: "#312e81",
   mintSoft: "#d1fae5",
   mintText: "#065f46",
   salmonSoft: "#ffe4e6",
   salmonText: "#9f1239",
 };
+
+const cardShadow = "0 16px 32px -25px rgba(15, 23, 42, 0.28)";
+const actionGradient = "linear-gradient(135deg, #4338ca 0%, #312e81 100%)";
 
 const pageStyle: React.CSSProperties = {
   display: "flex",
@@ -729,53 +751,55 @@ const pageHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
-  gap: "12px",
+  gap: "16px",
   flexWrap: "wrap",
-  background: palette.white,
-  border: `1px solid ${palette.slate200}`,
+  background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
   borderRadius: "20px",
-  padding: "18px",
+  padding: "22px",
+  boxShadow: cardShadow,
 };
 
 const pageTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "1.45rem",
-  fontWeight: 800,
-  color: palette.slate900,
+  fontSize: "1.52rem",
+  fontWeight: 900,
+  color: palette.white,
 };
 
 const pageSubtitleStyle: React.CSSProperties = {
-  margin: "6px 0 0",
-  color: palette.slate500,
-  fontSize: "0.9rem",
+  margin: "8px 0 0",
+  color: "#cbd5e1",
+  fontSize: "0.92rem",
 };
 
 const headerActionsStyle: React.CSSProperties = {
   display: "flex",
-  gap: "10px",
+  gap: "12px",
   flexWrap: "wrap",
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: palette.indigoMain,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: actionGradient,
   color: palette.white,
   borderRadius: "12px",
-  padding: "10px 14px",
-  fontWeight: 800,
+  padding: "10px 15px",
+  fontWeight: 900,
   cursor: "pointer",
-  fontSize: "0.85rem",
+  fontSize: "0.84rem",
+  boxShadow: "0 10px 20px -14px rgba(49, 46, 129, 0.9)",
 };
 
 const smallPrimaryButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: palette.indigoMain,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: actionGradient,
   color: palette.white,
   borderRadius: "12px",
   padding: "8px 12px",
-  fontWeight: 800,
+  fontWeight: 900,
   cursor: "pointer",
   fontSize: "0.8rem",
+  boxShadow: "0 10px 20px -14px rgba(49, 46, 129, 0.9)",
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
@@ -784,15 +808,27 @@ const secondaryButtonStyle: React.CSSProperties = {
   color: palette.slate700,
   borderRadius: "12px",
   padding: "10px 14px",
-  fontWeight: 700,
+  fontWeight: 800,
   cursor: "pointer",
   fontSize: "0.85rem",
 };
 
-const secondaryButtonActiveStyle: React.CSSProperties = {
-  border: `1px solid ${palette.indigoMain}`,
-  color: palette.indigoDark,
-  background: palette.indigoSoft,
+const headerGhostButtonStyle: React.CSSProperties = {
+  border: "1px solid rgba(226,232,240,0.35)",
+  background: "rgba(255,255,255,0.08)",
+  color: palette.white,
+  borderRadius: "12px",
+  padding: "10px 14px",
+  fontWeight: 800,
+  cursor: "pointer",
+  fontSize: "0.85rem",
+  backdropFilter: "blur(4px)",
+};
+
+const headerGhostButtonActiveStyle: React.CSSProperties = {
+  border: "1px solid rgba(226,232,240,0.52)",
+  background: "rgba(255,255,255,0.18)",
+  color: palette.white,
 };
 
 const successBannerStyle: React.CSSProperties = {
@@ -822,16 +858,47 @@ const feedbackCardStyle: React.CSSProperties = {
   padding: "16px",
   color: palette.slate500,
   fontWeight: 700,
+  boxShadow: cardShadow,
+};
+
+const kpiGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "14px",
+};
+
+const kpiCardStyle: React.CSSProperties = {
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "20px",
+  background: palette.white,
+  padding: "14px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  boxShadow: cardShadow,
+};
+
+const kpiLabelStyle: React.CSSProperties = {
+  color: palette.slate500,
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+};
+
+const kpiValueStyle: React.CSSProperties = {
+  color: palette.slate900,
+  fontWeight: 900,
+  fontSize: "1.18rem",
 };
 
 const getDualPaneStyle = (compact: boolean): React.CSSProperties => ({
-  display: "flex",
-  flexDirection: compact ? "column" : "row",
+  display: "grid",
+  gridTemplateColumns: compact ? "1fr" : "minmax(300px, 360px) 1fr",
   gap: "16px",
 });
 
 const leftPaneStyle: React.CSSProperties = {
-  flex: "0 0 40%",
   minWidth: 0,
   background: palette.white,
   border: `1px solid ${palette.slate200}`,
@@ -839,11 +906,11 @@ const leftPaneStyle: React.CSSProperties = {
   padding: "16px",
   display: "flex",
   flexDirection: "column",
-  gap: "12px",
+  gap: "14px",
+  boxShadow: cardShadow,
 };
 
 const rightPaneStyle: React.CSSProperties = {
-  flex: "1 1 60%",
   minWidth: 0,
   background: palette.white,
   border: `1px solid ${palette.slate200}`,
@@ -851,7 +918,8 @@ const rightPaneStyle: React.CSSProperties = {
   padding: "16px",
   display: "flex",
   flexDirection: "column",
-  gap: "12px",
+  gap: "14px",
+  boxShadow: cardShadow,
 };
 
 const cardHeaderStyle: React.CSSProperties = {
@@ -869,8 +937,8 @@ const cardHeadingWrapStyle: React.CSSProperties = {
 
 const cardTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "1.03rem",
-  fontWeight: 800,
+  fontSize: "1.04rem",
+  fontWeight: 900,
   color: palette.slate900,
 };
 
@@ -890,11 +958,11 @@ const countBadgeStyle: React.CSSProperties = {
 
 const filtersCardStyle: React.CSSProperties = {
   border: `1px solid ${palette.slate200}`,
-  borderRadius: "20px",
-  padding: "10px",
+  borderRadius: "16px",
+  padding: "12px",
   display: "flex",
   flexDirection: "column",
-  gap: "10px",
+  gap: "12px",
   background: "#f8fafc",
 };
 
@@ -907,20 +975,22 @@ const filtersRowStyle: React.CSSProperties = {
 const listWrapStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "10px",
+  gap: "12px",
   overflowY: "auto",
   maxHeight: "620px",
+  paddingRight: "2px",
 };
 
 const getListItemStyle = (selected: boolean): React.CSSProperties => ({
   border: selected ? `1px solid ${palette.indigoMain}` : `1px solid ${palette.slate200}`,
-  borderRadius: "20px",
-  background: selected ? palette.indigoSoft : palette.white,
+  borderRadius: "16px",
+  background: selected ? "#eef2ff" : palette.white,
   padding: "12px",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "8px",
+  gap: "10px",
+  boxShadow: selected ? "0 12px 24px -20px rgba(67,56,202,0.55)" : "none",
 });
 
 const itemContentButtonStyle: React.CSSProperties = {
@@ -936,8 +1006,8 @@ const itemContentButtonStyle: React.CSSProperties = {
 };
 
 const itemTitleStyle: React.CSSProperties = {
-  fontSize: "0.9rem",
-  fontWeight: 800,
+  fontSize: "0.92rem",
+  fontWeight: 900,
   color: palette.slate900,
 };
 
@@ -961,8 +1031,8 @@ const menuButtonStyle: React.CSSProperties = {
   width: "34px",
   height: "34px",
   borderRadius: "10px",
-  border: `1px solid ${palette.slate300}`,
-  background: palette.white,
+  border: `1px solid ${palette.slate200}`,
+  background: "#f8fafc",
   color: palette.slate700,
   cursor: "pointer",
   fontWeight: 800,
@@ -981,7 +1051,7 @@ const menuPopoverStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: "4px",
   padding: "6px",
-  boxShadow: "0 18px 30px -22px rgba(15,23,42,0.6)",
+  boxShadow: cardShadow,
 };
 
 const menuActionStyle: React.CSSProperties = {
@@ -1011,11 +1081,12 @@ const menuDangerActionStyle: React.CSSProperties = {
 const detailCardStyle: React.CSSProperties = {
   border: `1px solid ${palette.slate200}`,
   borderRadius: "20px",
-  background: "#f8fafc",
+  background: palette.white,
   padding: "16px",
   display: "flex",
   flexDirection: "column",
-  gap: "12px",
+  gap: "14px",
+  boxShadow: cardShadow,
 };
 
 const detailHeaderStyle: React.CSSProperties = {
@@ -1029,7 +1100,7 @@ const detailHeaderStyle: React.CSSProperties = {
 const detailTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
-  fontWeight: 800,
+  fontWeight: 900,
   color: palette.slate900,
 };
 
@@ -1050,58 +1121,58 @@ const modeTagStyle: React.CSSProperties = {
 
 const detailKpiGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-  gap: "10px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: "14px",
 };
 
 const detailKpiCardStyle: React.CSSProperties = {
   border: `1px solid ${palette.slate200}`,
-  borderRadius: "20px",
+  borderRadius: "16px",
   background: palette.white,
-  padding: "10px",
+  padding: "12px",
   display: "flex",
   flexDirection: "column",
-  gap: "4px",
+  gap: "6px",
 };
 
 const detailKpiLabelStyle: React.CSSProperties = {
   color: palette.slate500,
-  fontSize: "0.74rem",
-  fontWeight: 700,
+  fontSize: "0.72rem",
+  fontWeight: 800,
   textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  letterSpacing: "0.06em",
 };
 
 const detailKpiValueStyle: React.CSSProperties = {
   color: palette.slate900,
-  fontWeight: 800,
-  fontSize: "0.95rem",
+  fontWeight: 900,
+  fontSize: "1rem",
 };
 
 const formStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "10px",
+  gap: "14px",
 };
 
 const formGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "8px",
+  gap: "12px",
 };
 
 const fieldGroupStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "5px",
+  gap: "6px",
 };
 
 const fieldLabelStyle: React.CSSProperties = {
-  fontSize: "0.75rem",
+  fontSize: "0.72rem",
   color: palette.slate500,
   fontWeight: 800,
   textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  letterSpacing: "0.06em",
 };
 
 const fieldInputStyle: React.CSSProperties = {
@@ -1117,22 +1188,22 @@ const fieldInputStyle: React.CSSProperties = {
 const formActionsStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "flex-end",
-  gap: "10px",
+  gap: "12px",
   flexWrap: "wrap",
   marginTop: "4px",
 };
 
 const insightCardStyle: React.CSSProperties = {
-  border: `1px solid ${palette.indigoSoft}`,
-  borderRadius: "20px",
-  padding: "12px",
-  background: palette.indigoSoft,
+  border: `1px solid #c7d2fe`,
+  borderRadius: "16px",
+  padding: "14px",
+  background: "#eef2ff",
 };
 
 const insightTitleStyle: React.CSSProperties = {
   color: palette.indigoDark,
-  fontSize: "0.88rem",
-  fontWeight: 800,
+  fontSize: "0.9rem",
+  fontWeight: 900,
 };
 
 const insightTextStyle: React.CSSProperties = {
@@ -1142,57 +1213,57 @@ const insightTextStyle: React.CSSProperties = {
 };
 
 const actionsCardStyle: React.CSSProperties = {
-  border: `1px dashed ${palette.slate300}`,
-  borderRadius: "20px",
-  padding: "12px",
+  border: `1px solid ${palette.slate200}`,
+  borderRadius: "16px",
+  padding: "14px",
   background: palette.white,
 };
 
 const actionsTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "0.9rem",
-  fontWeight: 800,
+  fontSize: "0.92rem",
+  fontWeight: 900,
   color: palette.slate900,
 };
 
 const actionsListStyle: React.CSSProperties = {
-  margin: "8px 0 0 16px",
+  margin: "10px 0 0 16px",
   padding: 0,
   color: palette.slate700,
   fontSize: "0.84rem",
   display: "flex",
   flexDirection: "column",
-  gap: "5px",
+  gap: "6px",
 };
 
 const summaryGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-  gap: "10px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "14px",
 };
 
 const summaryCardStyle: React.CSSProperties = {
   border: `1px solid ${palette.slate200}`,
   background: palette.white,
-  borderRadius: "20px",
-  padding: "10px",
+  borderRadius: "16px",
+  padding: "12px",
   display: "flex",
   flexDirection: "column",
-  gap: "4px",
+  gap: "6px",
 };
 
 const summaryLabelStyle: React.CSSProperties = {
   color: palette.slate500,
   fontSize: "0.72rem",
-  fontWeight: 700,
+  fontWeight: 800,
   textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  letterSpacing: "0.06em",
 };
 
 const summaryValueStyle: React.CSSProperties = {
   color: palette.slate900,
-  fontSize: "1rem",
-  fontWeight: 800,
+  fontSize: "1.03rem",
+  fontWeight: 900,
 };
 
 const emptyStateStyle: React.CSSProperties = {
@@ -1207,6 +1278,7 @@ const emptyStateStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: "0.88rem",
   padding: "12px",
+  background: "#f8fafc",
 };
 
 function getStatusBadgeStyle(status: ClientStatus): React.CSSProperties {

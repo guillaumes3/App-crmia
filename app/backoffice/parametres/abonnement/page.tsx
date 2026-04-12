@@ -331,20 +331,17 @@ function formatCurrency(value: number | null): string {
 }
 
 const splitLayout: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "20px",
-  alignItems: "flex-start",
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+  gap: "16px",
 };
 
 const leftPane: React.CSSProperties = {
-  flex: "4 1 340px",
-  minWidth: "300px",
+  minWidth: 0,
 };
 
 const rightPane: React.CSSProperties = {
-  flex: "6 1 500px",
-  minWidth: "320px",
+  minWidth: 0,
 };
 
 const viewCard: React.CSSProperties = {
@@ -352,7 +349,7 @@ const viewCard: React.CSSProperties = {
   border: "1px solid #e2e8f0",
   borderRadius: "20px",
   padding: "24px",
-  boxShadow: "0 12px 28px rgba(15, 23, 42, 0.05)",
+  boxShadow: "0 16px 32px -25px rgba(15, 23, 42, 0.28)",
 };
 
 const cardHeaderRow: React.CSSProperties = {
@@ -377,12 +374,12 @@ const cardSubtitle: React.CSSProperties = {
 };
 
 const primaryButton: React.CSSProperties = {
-  background: "#4f46e5",
+  background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
   color: "#ffffff",
   border: "none",
   borderRadius: "12px",
   padding: "10px 14px",
-  fontWeight: 700,
+  fontWeight: 800,
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
@@ -396,7 +393,7 @@ const helperText: React.CSSProperties = {
 const itemStack: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "10px",
+  gap: "12px",
 };
 
 const listItemStyle = (active: boolean): React.CSSProperties => ({
@@ -404,8 +401,8 @@ const listItemStyle = (active: boolean): React.CSSProperties => ({
   alignItems: "center",
   justifyContent: "space-between",
   gap: "8px",
-  border: active ? "1px solid #6366f1" : "1px solid #e2e8f0",
-  borderRadius: "14px",
+  border: active ? "1px solid #4338ca" : "1px solid #e2e8f0",
+  borderRadius: "16px",
   background: active ? "#eef2ff" : "#f8fafc",
   padding: "8px 10px",
 });
@@ -414,7 +411,7 @@ const itemContentButton: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: "10px",
+  gap: "12px",
   border: "none",
   background: "transparent",
   cursor: "pointer",
@@ -465,7 +462,7 @@ const burgerButton: React.CSSProperties = {
   cursor: "pointer",
   color: "#334155",
   fontSize: "1rem",
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const dropdownMenu: React.CSSProperties = {
@@ -490,7 +487,7 @@ const dropdownButton: React.CSSProperties = {
   borderRadius: "8px",
   padding: "8px 10px",
   textAlign: "left",
-  fontWeight: 700,
+  fontWeight: 800,
   fontSize: "0.78rem",
   cursor: "pointer",
   color: "#334155",
@@ -499,20 +496,20 @@ const dropdownButton: React.CSSProperties = {
 const emptyState: React.CSSProperties = {
   minHeight: "260px",
   border: "1px dashed #cbd5e1",
-  borderRadius: "14px",
+  borderRadius: "16px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
   color: "#64748b",
-  fontWeight: 700,
+  fontWeight: 800,
   padding: "16px",
 };
 
 const formWrap: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "10px",
+  gap: "12px",
 };
 
 const formHeader: React.CSSProperties = {
@@ -575,7 +572,7 @@ const fieldInput: React.CSSProperties = {
 const actionsRow: React.CSSProperties = {
   display: "flex",
   justifyContent: "flex-end",
-  gap: "10px",
+  gap: "12px",
   marginTop: "16px",
 };
 
@@ -585,16 +582,16 @@ const ghostButton: React.CSSProperties = {
   color: "#334155",
   borderRadius: "12px",
   padding: "10px 16px",
-  fontWeight: 700,
+  fontWeight: 800,
   cursor: "pointer",
 };
 
 const submitButton: React.CSSProperties = {
   border: "none",
-  background: "#0f172a",
+  background: "linear-gradient(135deg, #4338ca 0%, #312e81 100%)",
   color: "#ffffff",
   borderRadius: "12px",
   padding: "10px 16px",
-  fontWeight: 700,
+  fontWeight: 800,
   cursor: "pointer",
 };
