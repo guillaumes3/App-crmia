@@ -142,6 +142,7 @@ const FALLBACK_PROSPECTS: Prospect[] = [
 
 const PROSPECTS_STORAGE_KEY = "kipilote_hq_prospects_v1";
 const SECTOR_OPTIONS = ["Boucherie", "Boulangerie", "Charcuterie", "Epicerie", "Fromagerie", "Traiteur"];
+const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
 
 const INITIAL_PROSPECT_DRAFT: ProspectDraft = {
   companyName: "",
@@ -597,7 +598,7 @@ export default function HqStaffPage() {
     const slug = buildOrganisationSlug(refName);
     const uniqueSuffix = (refId ?? `${Date.now()}`).slice(0, 6);
     const finalSlug = `${slug}-${uniqueSuffix}`.replace(/-+/g, "-");
-    const link = `https://kipilote.com/signup?org=${encodeURIComponent(finalSlug)}`;
+    const link = `${baseUrl}/signup?org=${encodeURIComponent(finalSlug)}`;
 
     setGeneratedInviteLink(link);
     setAccountFeedback("Lien d'inscription unique genere.");
@@ -1101,7 +1102,7 @@ export default function HqStaffPage() {
 
                 <div style={inviteCardStyle}>
                   <h4 style={miniTitleStyle}>Generateur de lien d'inscription</h4>
-                  <span style={mutedTextStyle}>Exemple: kipilote.com/signup?org=boucherie-dupont</span>
+                  <span style={mutedTextStyle}>Exemple: {baseUrl}/signup?org=boucherie-dupont</span>
                   <div style={inviteActionsStyle}>
                     <button type="button" style={secondaryButtonStyle} onClick={handleGenerateInviteLink}>
                       Generer URL d'invitation
