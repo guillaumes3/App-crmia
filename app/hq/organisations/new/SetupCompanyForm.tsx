@@ -12,7 +12,7 @@ const initialState: CreateOrganisationActionState = {
   success: false,
 };
 
-export default function OrganisationCreateForm() {
+export default function SetupCompanyForm() {
   const [serverState, formAction] = useActionState(createEnterpriseAccess, initialState);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -223,28 +223,18 @@ function SubmitButton() {
 
 function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
-      <path
-        d="M8 10V7a4 4 0 1 1 8 0v3m-9 0h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="4.5" y="10" width="15" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
     </svg>
   );
 }
 
 function UnlockIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden>
-      <path
-        d="M8 10V7a4 4 0 1 1 7.4-2M7 10h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="4.5" y="10" width="15" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 7.2-2.3" />
     </svg>
   );
 }

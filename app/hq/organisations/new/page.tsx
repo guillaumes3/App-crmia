@@ -1,4 +1,4 @@
-import SetupCompanyForm from "./SetupCompanyForm";
+import OrganisationCreateForm from "./OrganisationCreateForm";
 
 export default function NewOrganisationPage() {
   return (
@@ -13,7 +13,7 @@ export default function NewOrganisationPage() {
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-          <SetupCompanyForm />
+          <OrganisationCreateForm />
         </section>
       </div>
     </main>
