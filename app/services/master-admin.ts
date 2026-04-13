@@ -1,4 +1,5 @@
 import { supabase } from "../utils/supabase";
+import { isValidCompanySlug, normalizeCompanySlug } from "@/app/utils/companySlug";
 
 export type PlanCode = "STARTER" | "PRO" | "ENTERPRISE";
 export type OrganisationStatus = "actif" | "suspendu";
@@ -13,6 +14,10 @@ export const PLAN_PRICES: Record<PlanCode, number> = {
 export type OrganisationRow = {
   id: string;
   nom: string;
+  slug: string | null;
+  custom_domain: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
   plan: PlanCode | null;
   statut: OrganisationStatus | null;
   maintenance_mode: boolean | null;
@@ -50,15 +55,95 @@ export type PlatformVolume = {
 };
 
 export async function fetchOrganisations(): Promise<OrganisationRow[]> {
+  const extendedSelect =
+    "id, nom, slug, custom_domain, logo_url, primary_color, plan, statut, maintenance_mode, billing_email, owner_name, owner_email, seat_count, trial_ends_at, last_seen_at, temp_access_code, created_at, updated_at";
+  const legacySelect =
+    "id, nom, plan, statut, maintenance_mode, billing_email, owner_name, owner_email, seat_count, trial_ends_at, last_seen_at, temp_access_code, created_at, updated_at";
+
   const { data, error } = await supabase
     .from("organisations")
-    .select(
-      "id, nom, plan, statut, maintenance_mode, billing_email, owner_name, owner_email, seat_count, trial_ends_at, last_seen_at, temp_access_code, created_at, updated_at",
-    )
+    .select(extendedSelect)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    if (!isMissingColumnError(error.message)) {
+      throw error;
+    }
+
+    const legacyResponse = await supabase
+      .from("organisations")
+      .select(legacySelect)
+      .order("created_at", { ascending: false });
+
+    if (legacyResponse.error) throw legacyResponse.error;
+
+    return ((legacyResponse.data ?? []) as OrganisationRow[]).map((row) => ({
+      ...row,
+      slug: null,
+      custom_domain: null,
+      logo_url: null,
+      primary_color: null,
+    }));
+  }
+
   return (data ?? []) as OrganisationRow[];
+}
+
+export async function createOrganisation(input: {
+  name: string;
+  slug: string;
+  customDomain?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+}): Promise<OrganisationRow> {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error("Le nom de l entreprise est obligatoire.");
+  }
+
+  const slug = normalizeCompanySlug(input.slug);
+  if (!isValidCompanySlug(slug)) {
+    throw new Error("Slug invalide. Utilisez 2 a 63 caracteres (a-z, 0-9 et tirets).");
+  }
+
+  const { data: existingSlug, error: slugCheckError } = await supabase
+    .from("organisations")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (slugCheckError) throw slugCheckError;
+  if (existingSlug) {
+    throw new Error("Ce slug est deja utilise par une autre entreprise.");
+  }
+
+  const customDomain = input.customDomain?.trim() ?? "";
+  const logoUrl = input.logoUrl?.trim() ?? "";
+  const primaryColor = input.primaryColor?.trim() ?? "";
+
+  const { data, error } = await supabase
+    .from("organisations")
+    .insert([
+      {
+        nom: name,
+        slug,
+        custom_domain: customDomain || null,
+        logo_url: logoUrl || null,
+        primary_color: primaryColor || null,
+      },
+    ])
+    .select(
+      "id, nom, slug, custom_domain, logo_url, primary_color, plan, statut, maintenance_mode, billing_email, owner_name, owner_email, seat_count, trial_ends_at, last_seen_at, temp_access_code, created_at, updated_at",
+    )
+    .single();
+
+  if (error) throw error;
+  return data as OrganisationRow;
+}
+
+function isMissingColumnError(message: string | null | undefined): boolean {
+  const normalized = (message ?? "").toLowerCase();
+  return normalized.includes("column") && normalized.includes("does not exist");
 }
 
 export async function updateOrganisationPlan(id: string, plan: PlanCode): Promise<void> {

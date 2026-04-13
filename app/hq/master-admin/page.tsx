@@ -6,6 +6,7 @@ import { supabase } from "../../utils/supabase";
 import {
   PLAN_PRICES,
   clearTemporaryAccessCode,
+  createOrganisation,
   createBillingInvoice,
   fetchBillingInvoices,
   fetchOrganisations,
@@ -25,6 +26,7 @@ import {
   type PlanCode,
   type PlatformVolume,
 } from "@/app/services/master-admin";
+import { isValidCompanySlug, normalizeCompanySlug } from "@/app/utils/companySlug";
 import styles from "./page.module.css";
 
 type ActivityLevel = "info" | "success" | "warning";
@@ -53,6 +55,15 @@ type AccessFormState = {
   organisationId: string;
   ownerName: string;
   ownerEmail: string;
+};
+
+type CreateOrganisationFormState = {
+  name: string;
+  slug: string;
+  customDomain: string;
+  logoUrl: string;
+  primaryColor: string;
+  slugTouched: boolean;
 };
 
 const PLAN_OPTIONS: PlanCode[] = ["STARTER", "PRO", "ENTERPRISE"];
@@ -91,6 +102,15 @@ export default function MasterAdminPage() {
     organisationId: "",
     ownerName: "",
     ownerEmail: "",
+  });
+
+  const [createOrganisationForm, setCreateOrganisationForm] = useState<CreateOrganisationFormState>({
+    name: "",
+    slug: "",
+    customDomain: "",
+    logoUrl: "",
+    primaryColor: "",
+    slugTouched: false,
   });
 
   useEffect(() => {
@@ -170,7 +190,7 @@ export default function MasterAdminPage() {
     if (!normalized) return organisations;
 
     return organisations.filter((org) => {
-      const values = [org.nom, org.owner_email, org.billing_email, org.id]
+      const values = [org.nom, org.slug, org.owner_email, org.billing_email, org.id]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -533,6 +553,79 @@ export default function MasterAdminPage() {
     }
   };
 
+  const handleOrganisationNameChange = (value: string) => {
+    setCreateOrganisationForm((current) => {
+      if (current.slugTouched) {
+        return { ...current, name: value };
+      }
+
+      return {
+        ...current,
+        name: value,
+        slug: normalizeCompanySlug(value),
+      };
+    });
+  };
+
+  const handleOrganisationSlugChange = (value: string) => {
+    setCreateOrganisationForm((current) => ({
+      ...current,
+      slugTouched: true,
+      slug: normalizeCompanySlug(value),
+    }));
+  };
+
+  const handleCreateOrganisation = async () => {
+    clearMessages();
+
+    const name = createOrganisationForm.name.trim();
+    const slug = normalizeCompanySlug(createOrganisationForm.slug);
+
+    if (!name) {
+      setActionError("Le nom de l entreprise est obligatoire.");
+      return;
+    }
+
+    if (!isValidCompanySlug(slug)) {
+      setActionError("Slug invalide. Utilisez 2 a 63 caracteres (a-z, 0-9 et tirets).");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const created = await createOrganisation({
+        name,
+        slug,
+        customDomain: createOrganisationForm.customDomain,
+        logoUrl: createOrganisationForm.logoUrl,
+        primaryColor: createOrganisationForm.primaryColor,
+      });
+
+      await refreshOrganisations(true, setOrganisations);
+      setInvoiceForm((current) => ({ ...current, organisationId: created.id }));
+      setAccessForm((current) => ({ ...current, organisationId: created.id }));
+
+      setCreateOrganisationForm({
+        name: "",
+        slug: "",
+        customDomain: "",
+        logoUrl: "",
+        primaryColor: "",
+        slugTouched: false,
+      });
+
+      setActionSuccess(`Entreprise creee avec succes (${created.slug ?? slug}).`);
+      addActivity(setActivities, {
+        message: `Nouvelle entreprise creee: ${created.nom} (${created.slug ?? slug})`,
+        level: "success",
+      });
+    } catch (createError) {
+      setActionError(getErrorMessage(createError));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -637,7 +730,10 @@ export default function MasterAdminPage() {
                       <td>
                         <div className={styles.orgIdentity}>
                           <strong>{org.nom}</strong>
-                          <span>{org.owner_email || "owner non defini"} - {org.id.slice(0, 8)}</span>
+                          <span>
+                            {org.slug ? `${org.slug} - ` : ""}
+                            {org.owner_email || "owner non defini"} - {org.id.slice(0, 8)}
+                          </span>
                         </div>
                       </td>
                       <td>
@@ -886,6 +982,72 @@ export default function MasterAdminPage() {
 
       {!loading && activeTab === "acces" ? (
         <section className={styles.accessGrid}>
+          <article className={styles.card}>
+            <div className={styles.cardHeader}>
+              <h2>Creer une entreprise</h2>
+              <p>Provisioning initial avec slug unique pour la marque blanche.</p>
+            </div>
+
+            <div className={styles.formGrid}>
+              <label>
+                <span>Nom de l entreprise</span>
+                <input
+                  value={createOrganisationForm.name}
+                  onChange={(event) => handleOrganisationNameChange(event.target.value)}
+                  placeholder="Ex: Maison Lenoir"
+                />
+              </label>
+              <label>
+                <span>Slug (unique)</span>
+                <input
+                  value={createOrganisationForm.slug}
+                  onChange={(event) => handleOrganisationSlugChange(event.target.value)}
+                  placeholder="maison-lenoir"
+                />
+              </label>
+              <label>
+                <span>Domaine personnalise (optionnel)</span>
+                <input
+                  value={createOrganisationForm.customDomain}
+                  onChange={(event) =>
+                    setCreateOrganisationForm((current) => ({ ...current, customDomain: event.target.value.trim() }))
+                  }
+                  placeholder="app.maison-lenoir.fr"
+                />
+              </label>
+              <label>
+                <span>URL logo (optionnel)</span>
+                <input
+                  value={createOrganisationForm.logoUrl}
+                  onChange={(event) =>
+                    setCreateOrganisationForm((current) => ({ ...current, logoUrl: event.target.value.trim() }))
+                  }
+                  placeholder="https://..."
+                />
+              </label>
+              <label>
+                <span>Couleur primaire (optionnel)</span>
+                <input
+                  value={createOrganisationForm.primaryColor}
+                  onChange={(event) =>
+                    setCreateOrganisationForm((current) => ({ ...current, primaryColor: event.target.value.trim() }))
+                  }
+                  placeholder="#0ea5e9"
+                />
+              </label>
+            </div>
+
+            <div className={styles.inlineInfo}>
+              <p>Le slug est derive automatiquement du nom et reste editable manuellement.</p>
+            </div>
+
+            <div className={styles.formActions}>
+              <button type="button" onClick={handleCreateOrganisation} disabled={isSaving}>
+                {isSaving ? "Traitement..." : "Creer l entreprise"}
+              </button>
+            </div>
+          </article>
+
           <article className={styles.card}>
             <div className={styles.cardHeader}>
               <h2>Creer un acces entreprise global</h2>

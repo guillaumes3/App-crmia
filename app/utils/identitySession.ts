@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { type AppRole, resolveAppRole } from "@/app/security/permissions";
+import { isValidCompanySlug, normalizeCompanySlug } from "@/app/utils/companySlug";
 
 export const IDENTITY_SESSION_COOKIE = "kipilote_identity";
 export const IDENTITY_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
@@ -19,6 +20,7 @@ export type ClientIdentitySessionPayload = {
   email?: string;
   isHqStaff: false;
   organisationId: string;
+  organisationSlug: string;
   universe: "client";
   role: AppRole;
   exp: number;
@@ -48,6 +50,7 @@ export function buildIdentitySessionPayload(user: UserLike, exp: number): Identi
   const metadata = normalizeMetadata(user.user_metadata);
   const isHqStaff = readBoolean(metadata.is_hq_staff) === true;
   const organisationId = readOrganisationId(metadata.organisation_id);
+  const organisationSlug = readOrganisationSlug(metadata.organisation_slug);
 
   if (isHqStaff) {
     return {
@@ -59,7 +62,7 @@ export function buildIdentitySessionPayload(user: UserLike, exp: number): Identi
     };
   }
 
-  if (!organisationId) {
+  if (!organisationId || !organisationSlug) {
     return null;
   }
 
@@ -68,6 +71,7 @@ export function buildIdentitySessionPayload(user: UserLike, exp: number): Identi
     email: normalizeEmail(user.email),
     isHqStaff: false,
     organisationId,
+    organisationSlug,
     universe: "client",
     role: resolveAppRole(metadata.role),
     exp,
@@ -112,12 +116,18 @@ export function verifyIdentitySessionToken(token: string, secret: string): Ident
       };
     }
 
-    if (parsed.isHqStaff === false && universe === "client" && isValidOrganisationId(parsed.organisationId)) {
+    if (
+      parsed.isHqStaff === false &&
+      universe === "client" &&
+      isValidOrganisationId(parsed.organisationId) &&
+      isValidOrganisationSlug(parsed.organisationSlug)
+    ) {
       return {
         sub,
         email: typeof parsed.email === "string" ? parsed.email : undefined,
         isHqStaff: false,
         organisationId: parsed.organisationId,
+        organisationSlug: parsed.organisationSlug,
         universe: "client",
         role: resolveAppRole(parsed.role),
         exp,
@@ -157,8 +167,18 @@ function readOrganisationId(value: unknown): string | null {
   return trimmed;
 }
 
+function readOrganisationSlug(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = normalizeCompanySlug(value);
+  return isValidOrganisationSlug(normalized) ? normalized : null;
+}
+
 function isValidOrganisationId(value: unknown): value is string {
   return typeof value === "string" && UUID_REGEX.test(value.trim());
+}
+
+function isValidOrganisationSlug(value: unknown): value is string {
+  return typeof value === "string" && isValidCompanySlug(value);
 }
 
 function normalizeEmail(email: string | null | undefined): string | undefined {

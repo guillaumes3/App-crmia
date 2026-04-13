@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } 
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase";
 import { setActiveUniverse } from "@/app/utils/universeState";
+import { isValidCompanySlug, normalizeCompanySlug } from "@/app/utils/companySlug";
 
 type BootstrapSessionResponse = {
   isHqStaff?: boolean;
@@ -23,6 +24,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nomEntreprise, setNomEntreprise] = useState("");
+  const [companySlug, setCompanySlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState("");
   const [helperMessage, setHelperMessage] = useState("");
@@ -189,14 +192,25 @@ export default function LoginPage() {
       }
     } else {
       // --- INSCRIPTION NOUVELLE ENTREPRISE ---
+      const normalizedSlug = normalizeCompanySlug(companySlug || nomEntreprise);
+      if (!isValidCompanySlug(normalizedSlug)) {
+        alert("Slug invalide. Utilisez 2 a 63 caracteres (a-z, 0-9 et tirets).");
+        setIsLoading(false);
+        return;
+      }
+
       const { data: org, error: orgError } = await supabase
         .from("organisations")
-        .insert([{ nom: nomEntreprise }])
+        .insert([{ nom: nomEntreprise, slug: normalizedSlug }])
         .select()
         .single();
 
       if (orgError) {
-        alert("Erreur lors de la creation de l entreprise.");
+        if (String(orgError.message).toLowerCase().includes("slug")) {
+          alert("Ce slug est deja utilise. Choisissez-en un autre.");
+        } else {
+          alert("Erreur lors de la creation de l entreprise.");
+        }
         setIsLoading(false);
         return;
       }
@@ -240,13 +254,31 @@ export default function LoginPage() {
         )}
         <form onSubmit={handleAuth} style={formStyle}>
           {!isLogin && (
-            <input
-              placeholder="Nom de votre commerce"
-              value={nomEntreprise}
-              onChange={(e) => setNomEntreprise(e.target.value)}
-              required
-              style={inputStyle}
-            />
+            <>
+              <input
+                placeholder="Nom de votre commerce"
+                value={nomEntreprise}
+                onChange={(e) => {
+                  const nextName = e.target.value;
+                  setNomEntreprise(nextName);
+                  if (!slugTouched) {
+                    setCompanySlug(normalizeCompanySlug(nextName));
+                  }
+                }}
+                required
+                style={inputStyle}
+              />
+              <input
+                placeholder="Slug entreprise (ex: ma-societe)"
+                value={companySlug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setCompanySlug(normalizeCompanySlug(e.target.value));
+                }}
+                required
+                style={inputStyle}
+              />
+            </>
           )}
           <input
             type="text" // Changé de 'email' à 'text' pour accepter "admin"
