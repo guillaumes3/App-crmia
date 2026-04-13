@@ -54,6 +54,25 @@ export default function LoginPage() {
     void validateStoredSession();
   }, [resetCorruptedSession]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const signupQuery = params.get("signup");
+    const orgQuery = params.get("org");
+    const shouldOpenSignup = signupQuery === "1" || signupQuery === "true";
+    const normalizedOrgSlug = normalizeCompanySlug(orgQuery ?? "");
+
+    if (shouldOpenSignup) {
+      setIsLogin(false);
+    }
+
+    if (normalizedOrgSlug) {
+      setCompanySlug(normalizedOrgSlug);
+      setSlugTouched(true);
+    }
+  }, []);
+
   const handleForgotPassword = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail.includes("@")) {
