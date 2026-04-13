@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../utils/supabase";
 import {
@@ -630,7 +631,15 @@ export default function MasterAdminPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1>Pilotage Multi-Entreprise</h1>
+          <div className="flex justify-between items-center mb-8">
+            <h1>Pilotage Multi-Entreprise</h1>
+            <Link
+              href="/hq/organisations/new"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-all"
+            >
+              + Nouvel Accès Entreprise
+            </Link>
+          </div>
           <p>Administration centralisee, maintenance, analytics globales, facturation et gestion des acces entreprises.</p>
         </div>
         <div className={styles.searchBox}>
