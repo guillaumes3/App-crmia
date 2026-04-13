@@ -2,24 +2,34 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getCurrentIdentity } from "@/app/security/currentIdentity";
+import { findHqProfileByIdentity } from "@/app/utils/hqProfileLookup";
 import { SUPABASE_URL } from "@/app/utils/supabase";
 import { createOrganisationSchema } from "./schema";
 
-export type CreateOrganisationActionState = {
-  message: string;
-  fieldErrors: {
-    name?: string;
-    slug?: string;
-    primaryColor?: string;
-    logoUrl?: string;
-    adminEmail?: string;
-    temporaryPassword?: string;
-  };
+type FieldErrors = {
+  name?: string;
+  slug?: string;
+  primaryColor?: string;
+  adminEmail?: string;
+  adminPassword?: string;
+  temporaryPassword?: string;
+  logoUrl?: string;
 };
 
-export async function createOrganisation(
+export type CreateOrganisationActionState = {
+  message: string;
+  fieldErrors: FieldErrors;
+  success?: boolean;
+};
+
+type ProvisioningFailure = {
+  baseMessage: string;
+  detail?: string;
+  fieldErrors: FieldErrors;
+};
+
+export async function createEnterpriseAccess(
   _prevState: CreateOrganisationActionState,
   formData: FormData,
 ): Promise<CreateOrganisationActionState> {
@@ -39,17 +49,21 @@ export async function createOrganisation(
     };
   }
 
+  const adminPasswordRaw = asString(formData.get("adminPassword") ?? formData.get("temporaryPassword"));
+  const temporaryPasswordCompat = adminPasswordRaw.length > 0 ? adminPasswordRaw.padEnd(8, "0") : "";
   const parsed = createOrganisationSchema.safeParse({
     name: formData.get("name"),
     slug: formData.get("slug"),
     primaryColor: formData.get("primaryColor"),
+    adminPassword: adminPasswordRaw,
     logoUrl: formData.get("logoUrl"),
     adminEmail: formData.get("adminEmail"),
-    temporaryPassword: formData.get("temporaryPassword"),
+    temporaryPassword: temporaryPasswordCompat,
   });
 
   if (!parsed.success) {
-    const errors = parsed.error.flatten().fieldErrors;
+    const errors = parsed.error.flatten().fieldErrors as Record<string, string[] | undefined>;
+    const passwordError = errors.adminPassword?.[0] ?? errors.temporaryPassword?.[0];
     return {
       message: "Merci de corriger les champs invalides.",
       fieldErrors: {
@@ -58,7 +72,18 @@ export async function createOrganisation(
         primaryColor: errors.primaryColor?.[0],
         logoUrl: errors.logoUrl?.[0],
         adminEmail: errors.adminEmail?.[0],
-        temporaryPassword: errors.temporaryPassword?.[0],
+        adminPassword: passwordError,
+        temporaryPassword: passwordError,
+      },
+    };
+  }
+
+  if (adminPasswordRaw.length < 6) {
+    return {
+      message: "Merci de corriger les champs invalides.",
+      fieldErrors: {
+        adminPassword: "Le mot de passe temporaire doit contenir au moins 6 caracteres.",
+        temporaryPassword: "Le mot de passe temporaire doit contenir au moins 6 caracteres.",
       },
     };
   }
@@ -70,10 +95,29 @@ export async function createOrganisation(
     },
   });
 
+  const requesterProfile = await findHqProfileByIdentity(supabaseAdmin, {
+    userId: identity.sub,
+    email: identity.email ?? null,
+  });
+
+  if (!requesterProfile || requesterProfile.is_hq_staff !== true || !isSuperAdminRole(requesterProfile.role_hq)) {
+    return {
+      message: "Acces refuse. Le role Super-Admin HQ est requis.",
+      fieldErrors: {},
+    };
+  }
+
+  const input = parsed.data as {
+    name: string;
+    slug: string;
+    primaryColor?: string;
+    adminEmail: string;
+  };
+
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("organisations")
     .select("id")
-    .eq("slug", parsed.data.slug)
+    .eq("slug", input.slug)
     .maybeSingle();
 
   if (existingError) {
@@ -92,89 +136,85 @@ export async function createOrganisation(
     };
   }
 
-  const { data: organisation, error: insertError } = await supabaseAdmin
-    .from("organisations")
-    .insert([
-      {
-        nom: parsed.data.name,
-        slug: parsed.data.slug,
-        logo_url: parsed.data.logoUrl || null,
-        primary_color: parsed.data.primaryColor || null,
+  let createdOrganisationId: string | null = null;
+  let createdAuthUserId: string | null = null;
+
+  try {
+    const { data: organisation, error: insertError } = await supabaseAdmin
+      .from("organisations")
+      .insert([
+        {
+          nom: input.name,
+          slug: input.slug,
+          primary_color: input.primaryColor && input.primaryColor.trim() ? input.primaryColor : null,
+        },
+      ])
+      .select("id, slug")
+      .single<{ id: string; slug: string }>();
+
+    if (insertError || !organisation) {
+      throw createProvisioningFailure("Echec creation organisation.", normalizeDatabaseError(insertError?.message));
+    }
+
+    createdOrganisationId = organisation.id;
+
+    const authCreation = await supabaseAdmin.auth.admin.createUser({
+      email: input.adminEmail,
+      password: adminPasswordRaw,
+      email_confirm: true,
+      user_metadata: {
+        role: "Administrateur",
+        organisation_id: organisation.id,
+        organisation_slug: organisation.slug,
       },
-    ])
-    .select("id, slug")
-    .single<{ id: string; slug: string }>();
-
-  if (insertError || !organisation) {
-    return {
-      message: normalizeDatabaseError(insertError?.message),
-      fieldErrors: {},
-    };
-  }
-
-  const authCreation = await supabaseAdmin.auth.admin.createUser({
-    email: parsed.data.adminEmail,
-    password: parsed.data.temporaryPassword,
-    email_confirm: true,
-    user_metadata: {
-      role: "Administrateur",
-      organisation_id: organisation.id,
-      organisation_slug: organisation.slug,
-      is_hq_staff: false,
-    },
-    app_metadata: {
-      role: "Administrateur",
-      organisation_id: organisation.id,
-      organisation_slug: organisation.slug,
-      is_hq_staff: false,
-    },
-  });
-
-  if (authCreation.error || !authCreation.data.user?.id) {
-    const rollback = await rollbackOrganisationOnly(supabaseAdmin, organisation.id);
-    return {
-      message: createAtomicFailureMessage(
-        "Echec creation utilisateur administrateur.",
-        normalizeAuthError(authCreation.error?.message),
-        rollback,
-      ),
-      fieldErrors: {
-        adminEmail: isEmailAlreadyTakenError(authCreation.error?.message)
-          ? "Cet email administrateur est deja utilise."
-          : undefined,
+      app_metadata: {
+        role: "Administrateur",
+        organisation_id: organisation.id,
+        organisation_slug: organisation.slug,
       },
-    };
-  }
-
-  const profileCreation = await createProfileLink(supabaseAdmin, {
-    authUserId: authCreation.data.user.id,
-    organisationId: organisation.id,
-    email: parsed.data.adminEmail,
-  });
-
-  if (!profileCreation.ok) {
-    const rollback = await rollbackOrganisationAndUser(supabaseAdmin, {
-      organisationId: organisation.id,
-      authUserId: authCreation.data.user.id,
     });
 
+    if (authCreation.error || !authCreation.data.user?.id) {
+      throw createProvisioningFailure(
+        "Echec creation utilisateur administrateur.",
+        normalizeAuthError(authCreation.error?.message),
+        {
+          adminEmail: isEmailAlreadyTakenError(authCreation.error?.message)
+            ? "Cet email administrateur est deja utilise."
+            : undefined,
+        },
+      );
+    }
+
+    createdAuthUserId = authCreation.data.user.id;
+
+    const profileCreation = await createProfileLink(supabaseAdmin, {
+      authUserId: createdAuthUserId,
+      organisationId: organisation.id,
+      email: input.adminEmail,
+    });
+
+    if (!profileCreation.ok) {
+      throw createProvisioningFailure("Echec creation profile administrateur.", profileCreation.errorMessage);
+    }
+  } catch (error) {
+    const failure = readProvisioningFailure(error);
+    const rollback = await rollbackProvisioning(supabaseAdmin, {
+      organisationId: createdOrganisationId,
+      authUserId: createdAuthUserId,
+    });
     return {
-      message: createAtomicFailureMessage("Echec creation profile administrateur.", profileCreation.errorMessage, rollback),
-      fieldErrors: {},
+      message: createAtomicFailureMessage(failure.baseMessage, failure.detail, rollback),
+      fieldErrors: failure.fieldErrors,
     };
   }
 
-  const loginUrl = buildClientLoginUrl(organisation.slug);
-  const successMessage = `Organisation creee avec succes. URL de connexion: ${loginUrl}`;
-  const query = new URLSearchParams({
-    success: successMessage,
-    loginUrl,
-    slug: organisation.slug,
-  });
-
-  revalidatePath("/hq/master-admin");
   revalidatePath("/hq/organisations");
-  redirect(`/hq/organisations?${query.toString()}`);
+  return {
+    success: true,
+    message: "Acces entreprise cree avec succes (organisation + administrateur).",
+    fieldErrors: {},
+  };
 }
 
 type RollbackResult = {
@@ -183,32 +223,30 @@ type RollbackResult = {
 };
 
 type RollbackInput = {
-  organisationId: string;
-  authUserId: string;
+  organisationId: string | null;
+  authUserId: string | null;
 };
 
-async function rollbackOrganisationOnly(
-  supabaseAdmin: SupabaseClient,
-  organisationId: string,
-): Promise<RollbackResult> {
-  const { error } = await supabaseAdmin.from("organisations").delete().eq("id", organisationId);
-
-  return {
-    organisationDeleted: !error,
-    userDeleted: false,
-  };
-}
-
-async function rollbackOrganisationAndUser(
+async function rollbackProvisioning(
   supabaseAdmin: SupabaseClient,
   input: RollbackInput,
 ): Promise<RollbackResult> {
-  const deleteUser = await supabaseAdmin.auth.admin.deleteUser(input.authUserId);
-  const deleteOrganisation = await supabaseAdmin.from("organisations").delete().eq("id", input.organisationId);
+  let userDeleted = false;
+  if (input.authUserId) {
+    const deleteUser = await supabaseAdmin.auth.admin.deleteUser(input.authUserId);
+    userDeleted = !deleteUser.error;
+  }
+
+  let organisationDeleted = false;
+  if (input.organisationId) {
+    // Rollback mandatory: remove organisation created at step 1.
+    const deleteOrganisation = await supabaseAdmin.from("organisations").delete().eq("id", input.organisationId);
+    organisationDeleted = !deleteOrganisation.error;
+  }
 
   return {
-    organisationDeleted: !deleteOrganisation.error,
-    userDeleted: !deleteUser.error,
+    organisationDeleted,
+    userDeleted,
   };
 }
 
@@ -282,6 +320,40 @@ function normalizeDatabaseError(raw: string | null | undefined): string {
   return "Une erreur serveur est survenue pendant le provisioning.";
 }
 
+function createProvisioningFailure(
+  baseMessage: string,
+  detail?: string,
+  fieldErrors: FieldErrors = {},
+): ProvisioningFailure {
+  return {
+    baseMessage,
+    detail,
+    fieldErrors,
+  };
+}
+
+function readProvisioningFailure(error: unknown): ProvisioningFailure {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "baseMessage" in error &&
+    typeof (error as { baseMessage: unknown }).baseMessage === "string"
+  ) {
+    const candidate = error as Partial<ProvisioningFailure>;
+    return {
+      baseMessage: candidate.baseMessage ?? "Provisioning interrompu.",
+      detail: candidate.detail,
+      fieldErrors: candidate.fieldErrors ?? {},
+    };
+  }
+
+  return {
+    baseMessage: "Provisioning interrompu.",
+    detail: getErrorMessage(error),
+    fieldErrors: {},
+  };
+}
+
 function normalizeAuthError(raw: string | null | undefined): string {
   const message = (raw ?? "").trim().toLowerCase();
 
@@ -317,13 +389,33 @@ function createAtomicFailureMessage(base: string, detail: string | undefined, ro
   return `${base}${details} ${rollbackSummary}`;
 }
 
-function buildClientLoginUrl(slug: string): string {
-  const configuredBaseDomain = process.env.CLIENT_LOGIN_BASE_DOMAIN ?? "mon-saas.com";
-  const normalizedBaseDomain = configuredBaseDomain
+function isSuperAdminRole(role: string | null | undefined): boolean {
+  const normalized = (role ?? "")
     .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/^\.*/, "")
-    .replace(/\/+$/, "");
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-");
 
-  return `https://${slug}.${normalizedBaseDomain}/login`;
+  return normalized === "super-admin";
 }
+
+function asString(value: FormDataEntryValue | null): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  return "";
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
+  return "Erreur inconnue";
+}
+
+export const createOrganisation = createEnterpriseAccess;

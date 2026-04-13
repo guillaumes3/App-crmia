@@ -16,28 +16,13 @@ export const createOrganisationSchema = z.object({
     .string()
     .trim()
     .transform((value) => value.toLowerCase())
-    .refine((value) => value.length === 0 || COLOR_REGEX.test(value), {
+    .refine((value) => COLOR_REGEX.test(value), {
       message: "Couleur invalide. Utilisez un code hex (#RRGGBB).",
     }),
-  logoUrl: z
-    .string()
-    .trim()
-    .refine((value) => value.length === 0 || isHttpUrl(value), {
-      message: "URL logo invalide. Utilisez une URL http(s).",
-    }),
   adminEmail: z.email("Email administrateur invalide.").transform((value) => value.trim().toLowerCase()),
-  temporaryPassword: z
+  adminPassword: z
     .string()
-    .min(8, "Le mot de passe temporaire doit contenir au moins 8 caracteres."),
+    .min(6, "Le mot de passe temporaire doit contenir au moins 6 caracteres."),
 });
 
 export type CreateOrganisationInput = z.infer<typeof createOrganisationSchema>;
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}

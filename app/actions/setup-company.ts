@@ -107,78 +107,109 @@ export async function setupCompany(
     };
   }
 
-  const { data: organisation, error: organisationError } = await supabaseAdmin
-    .from("organisations")
-    .insert([
-      {
-        nom: payload.data.name,
-        slug: payload.data.slug,
-        logo_url: payload.data.logoUrl || null,
-        primary_color: payload.data.primaryColor || null,
+  let createdOrganisationId: string | null = null;
+  let createdAuthUserId: string | null = null;
+
+  try {
+    const { data: organisation, error: organisationError } = await supabaseAdmin
+      .from("organisations")
+      .insert([
+        {
+          nom: payload.data.name,
+          slug: payload.data.slug,
+          logo_url: payload.data.logoUrl || null,
+          primary_color: payload.data.primaryColor || null,
+        },
+      ])
+      .select("id, slug")
+      .single<{ id: string; slug: string }>();
+
+    if (organisationError || !organisation) {
+      throw createProvisioningFailure("Echec creation organisation.", normalizeSupabaseError(organisationError?.message));
+    }
+
+    createdOrganisationId = organisation.id;
+
+    const createAdminUser = await supabaseAdmin.auth.admin.createUser({
+      email: payload.data.adminEmail,
+      password: payload.data.temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        organisation_id: organisation.id,
+        organisation_slug: organisation.slug,
+        role: "Administrateur",
+        is_hq_staff: false,
       },
-    ])
-    .select("id, slug")
-    .single<{ id: string; slug: string }>();
+      app_metadata: {
+        organisation_id: organisation.id,
+        organisation_slug: organisation.slug,
+        role: "Administrateur",
+        is_hq_staff: false,
+      },
+    });
 
-  if (organisationError || !organisation) {
-    return {
-      message: normalizeSupabaseError(organisationError?.message),
-      fieldErrors: {},
-    };
-  }
-
-  const createAdminUser = await supabaseAdmin.auth.admin.createUser({
-    email: payload.data.adminEmail,
-    password: payload.data.temporaryPassword,
-    email_confirm: true,
-    user_metadata: {
-      organisation_id: organisation.id,
-      organisation_slug: organisation.slug,
-      role: "Administrateur",
-      is_hq_staff: false,
-    },
-    app_metadata: {
-      organisation_id: organisation.id,
-      organisation_slug: organisation.slug,
-      role: "Administrateur",
-      is_hq_staff: false,
-    },
-  });
-
-  if (createAdminUser.error || !createAdminUser.data.user?.id) {
-    const rollback = await rollbackOrganisationOnly(supabaseAdmin, organisation.id);
-    return {
-      message: createAtomicFailureMessage(
+    if (createAdminUser.error || !createAdminUser.data.user?.id) {
+      throw createProvisioningFailure(
         "Echec creation utilisateur administrateur.",
         createAdminUser.error?.message,
-        rollback,
-      ),
-      fieldErrors: {
-        adminEmail: "Impossible de creer l utilisateur avec cet email.",
-      },
-    };
-  }
+        {
+          adminEmail: "Impossible de creer l utilisateur avec cet email.",
+        },
+      );
+    }
 
-  const authUserId = createAdminUser.data.user.id;
-  const linkProfileResult = await createProfileLink(supabaseAdmin, {
-    authUserId,
-    organisationId: organisation.id,
-    email: payload.data.adminEmail,
-  });
+    const authUserId = createAdminUser.data.user.id;
+    createdAuthUserId = authUserId;
 
-  if (!linkProfileResult.ok) {
-    const rollback = await rollbackOrganisationAndUser(supabaseAdmin, {
-      organisationId: organisation.id,
+    const linkProfileResult = await createProfileLink(supabaseAdmin, {
       authUserId,
+      organisationId: organisation.id,
+      email: payload.data.adminEmail,
+    });
+
+    if (!linkProfileResult.ok) {
+      throw createProvisioningFailure(
+        "Echec liaison profile/organisation.",
+        linkProfileResult.errorMessage,
+      );
+    }
+
+    // Step 3: generate dynamic tenant reset link with redirectTo.
+    const generatedLink = await generateOrganisationAuthLink(supabaseAdmin, {
+      type: "recovery",
+      email: payload.data.adminEmail,
+      organisationSlug: organisation.slug,
+      data: {
+        organisation_id: organisation.id,
+        organisation_slug: organisation.slug,
+        role: "Administrateur",
+      },
+    });
+
+    if (!generatedLink.ok) {
+      throw createProvisioningFailure(
+        "Echec generation du lien email de reinitialisation.",
+        generatedLink.errorMessage,
+      );
+    }
+  } catch (error) {
+    const failure = readProvisioningFailure(error);
+
+    if (!createdOrganisationId) {
+      return {
+        message: composeFailureMessage(failure.baseMessage, failure.detail),
+        fieldErrors: failure.fieldErrors,
+      };
+    }
+
+    const rollback = await rollbackProvisioning(supabaseAdmin, {
+      organisationId: createdOrganisationId,
+      authUserId: createdAuthUserId,
     });
 
     return {
-      message: createAtomicFailureMessage(
-        "Echec liaison profile/organisation.",
-        linkProfileResult.errorMessage,
-        rollback,
-      ),
-      fieldErrors: {},
+      message: createAtomicFailureMessage(failure.baseMessage, failure.detail, rollback),
+      fieldErrors: failure.fieldErrors,
     };
   }
 
@@ -192,32 +223,70 @@ type RollbackResult = {
   userDeleted: boolean;
 };
 
-type RollbackInput = {
-  organisationId: string;
-  authUserId: string;
+type ProvisioningFailure = {
+  baseMessage: string;
+  detail?: string;
+  fieldErrors: FieldErrors;
 };
 
-async function rollbackOrganisationOnly(
-  supabaseAdmin: SupabaseClient,
-  organisationId: string,
-): Promise<RollbackResult> {
-  const { error } = await supabaseAdmin.from("organisations").delete().eq("id", organisationId);
+type RollbackInput = {
+  organisationId: string;
+  authUserId: string | null;
+};
+
+function createProvisioningFailure(
+  baseMessage: string,
+  detail?: string,
+  fieldErrors: FieldErrors = {},
+): ProvisioningFailure {
   return {
-    organisationDeleted: !error,
-    userDeleted: false,
+    baseMessage,
+    detail,
+    fieldErrors,
   };
 }
 
-async function rollbackOrganisationAndUser(
+function readProvisioningFailure(error: unknown): ProvisioningFailure {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "baseMessage" in error &&
+    typeof (error as { baseMessage: unknown }).baseMessage === "string"
+  ) {
+    const candidate = error as Partial<ProvisioningFailure>;
+    return {
+      baseMessage: candidate.baseMessage ?? "Provisioning interrompu.",
+      detail: candidate.detail,
+      fieldErrors: candidate.fieldErrors ?? {},
+    };
+  }
+
+  return {
+    baseMessage: "Provisioning interrompu.",
+    detail: getErrorMessage(error),
+    fieldErrors: {},
+  };
+}
+
+function composeFailureMessage(base: string, detail?: string): string {
+  return detail ? `${base} Detail: ${detail}.` : base;
+}
+
+async function rollbackProvisioning(
   supabaseAdmin: SupabaseClient,
   input: RollbackInput,
 ): Promise<RollbackResult> {
-  const deleteUser = await supabaseAdmin.auth.admin.deleteUser(input.authUserId);
+  let userDeleted = false;
+  if (input.authUserId) {
+    const deleteUser = await supabaseAdmin.auth.admin.deleteUser(input.authUserId);
+    userDeleted = !deleteUser.error;
+  }
+
   const deleteOrganisation = await supabaseAdmin.from("organisations").delete().eq("id", input.organisationId);
 
   return {
     organisationDeleted: !deleteOrganisation.error,
-    userDeleted: !deleteUser.error,
+    userDeleted,
   };
 }
 
@@ -277,6 +346,65 @@ async function createProfileLink(
   };
 }
 
+type OrganisationAuthLinkInput = {
+  type: "recovery" | "invite";
+  email: string;
+  organisationSlug: string;
+  data?: Record<string, unknown>;
+};
+
+type OrganisationAuthLinkResult =
+  | { ok: true; actionLink: string }
+  | { ok: false; errorMessage: string };
+
+async function generateOrganisationAuthLink(
+  supabaseAdmin: SupabaseClient,
+  input: OrganisationAuthLinkInput,
+): Promise<OrganisationAuthLinkResult> {
+  const redirectTo = buildOrganisationPasswordUpdateUrl(input.organisationSlug);
+  const linkPayload =
+    input.type === "recovery"
+      ? {
+          type: "recovery" as const,
+          email: input.email,
+          options: {
+            redirectTo,
+          },
+        }
+      : {
+          type: "invite" as const,
+          email: input.email,
+          options: {
+            redirectTo,
+            data: input.data,
+          },
+        };
+
+  const { data, error } = await supabaseAdmin.auth.admin.generateLink(linkPayload);
+
+  if (error || !data?.properties?.action_link) {
+    return {
+      ok: false,
+      errorMessage: error?.message ?? "Generation lien email impossible.",
+    };
+  }
+
+  return {
+    ok: true,
+    actionLink: data.properties.action_link,
+  };
+}
+
+function buildOrganisationPasswordUpdateUrl(slug: string): string {
+  const baseDomain = (process.env.CLIENT_LOGIN_BASE_DOMAIN ?? "mon-saas.com")
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^\.*/, "")
+    .replace(/\/+$/, "");
+
+  return `https://${slug}.${baseDomain}/auth/update-password`;
+}
+
 function isRecoverableInsertError(message: string | null | undefined): boolean {
   const normalized = (message ?? "").toLowerCase();
   return normalized.includes("column") || normalized.includes("42703") || normalized.includes("22p02");
@@ -322,4 +450,16 @@ function isSuperAdminRole(role: string | null | undefined): boolean {
     .replace(/[_\s]+/g, "-");
 
   return normalized === "super-admin";
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error.trim();
+  }
+
+  return "Erreur inconnue";
 }
