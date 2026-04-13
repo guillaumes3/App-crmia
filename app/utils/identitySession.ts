@@ -1,18 +1,30 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { type AppRole, resolveAppRole } from "@/app/security/permissions";
 
 export const IDENTITY_SESSION_COOKIE = "kipilote_identity";
 export const IDENTITY_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 export type UserUniverse = "hq" | "client";
 
-export type IdentitySessionPayload = {
+export type HqIdentitySessionPayload = {
   sub: string;
   email?: string;
-  isHqStaff: boolean;
-  organisationId?: string;
-  universe: UserUniverse;
+  isHqStaff: true;
+  universe: "hq";
   exp: number;
 };
+
+export type ClientIdentitySessionPayload = {
+  sub: string;
+  email?: string;
+  isHqStaff: false;
+  organisationId: string;
+  universe: "client";
+  role: AppRole;
+  exp: number;
+};
+
+export type IdentitySessionPayload = HqIdentitySessionPayload | ClientIdentitySessionPayload;
 
 type MetadataLike = Record<string, unknown> | null | undefined;
 
@@ -57,6 +69,7 @@ export function buildIdentitySessionPayload(user: UserLike, exp: number): Identi
     isHqStaff: false,
     organisationId,
     universe: "client",
+    role: resolveAppRole(metadata.role),
     exp,
   };
 }
@@ -78,7 +91,9 @@ export function verifyIdentitySessionToken(token: string, secret: string): Ident
   if (!timingSafeEqual(providedBuffer, expectedBuffer)) return null;
 
   try {
-    const parsed = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as Partial<IdentitySessionPayload>;
+    const parsed = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as Partial<
+      IdentitySessionPayload
+    >;
     const sub = typeof parsed.sub === "string" ? parsed.sub : "";
     const universe = parsed.universe === "hq" || parsed.universe === "client" ? parsed.universe : null;
     const exp = typeof parsed.exp === "number" ? parsed.exp : NaN;
@@ -104,6 +119,7 @@ export function verifyIdentitySessionToken(token: string, secret: string): Ident
         isHqStaff: false,
         organisationId: parsed.organisationId,
         universe: "client",
+        role: resolveAppRole(parsed.role),
         exp,
       };
     }

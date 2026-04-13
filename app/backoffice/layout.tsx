@@ -6,28 +6,30 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../utils/supabase';
 import { getOrganisationId, isKipiloteStaff } from '@/app/types/auth';
 import { setActiveUniverse } from '@/app/utils/universeState';
+import { hasPermission, resolveAppRole, type AppRole, type PermissionKey } from '@/app/security/permissions';
 
 type BackOfficeUser = {
   name: string;
-  role: string;
+  role: AppRole;
   initials: string;
 };
 
 type NavigationItem = {
   label: string;
   path: string;
+  requiredPermission: PermissionKey;
 };
 
 const MOBILE_BREAKPOINT = 1024;
 
 const NAV_ITEMS: NavigationItem[] = [
-  { label: 'Dashboard', path: '/backoffice/dashboard' },
-  { label: 'Stock', path: '/backoffice/articles' },
-  { label: 'Fournisseurs', path: '/backoffice/fournisseurs' },
-  { label: 'Commandes', path: '/backoffice/commandes' },
-  { label: 'Clients', path: '/backoffice/clients' },
-  { label: 'Ventes', path: '/backoffice/ventes' },
-  { label: 'Parametres', path: '/backoffice/parametres' },
+  { label: 'Dashboard', path: '/backoffice/dashboard', requiredPermission: 'CAN_VIEW_DASHBOARD' },
+  { label: 'Stock', path: '/backoffice/articles', requiredPermission: 'CAN_VIEW_STOCK' },
+  { label: 'Fournisseurs', path: '/backoffice/fournisseurs', requiredPermission: 'CAN_VIEW_SUPPLIERS' },
+  { label: 'Commandes', path: '/backoffice/commandes', requiredPermission: 'CAN_VIEW_ORDERS' },
+  { label: 'Clients', path: '/backoffice/clients', requiredPermission: 'CAN_VIEW_CLIENTS' },
+  { label: 'Ventes', path: '/backoffice/ventes', requiredPermission: 'CAN_VIEW_SALES' },
+  { label: 'Parametres', path: '/backoffice/parametres', requiredPermission: 'CAN_MANAGE_USERS' },
 ];
 
 const buildInitials = (name?: string, fallback = 'US'): string => {
@@ -115,10 +117,16 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
       const metadata = session.user.user_metadata;
       const name = metadata.nom || session.user.email || 'Utilisateur';
       const organisationId = getOrganisationId(session.user);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('auth_user_id', session.user.id)
+        .maybeSingle<{ role?: string | null }>();
+      const resolvedRole = resolveAppRole(profile?.role ?? metadata.role);
 
       setUser({
         name,
-        role: metadata.role || 'Collaborateur',
+        role: resolvedRole,
         initials: buildInitials(metadata.nom, 'US'),
       });
 
@@ -150,6 +158,10 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
   }, [router]);
 
   const isActivePath = (path: string): boolean => pathname === path || pathname.startsWith(`${path}/`);
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => hasPermission(user?.role ?? 'Vendeur', item.requiredPermission)),
+    [user?.role],
+  );
 
   const closeDrawer = () => setIsDrawerOpen(false);
 
@@ -255,7 +267,7 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
         {isDesktop ? (
           <div style={desktopRightZoneStyle}>
             <nav style={desktopNavStyle}>
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <Link
                   key={item.path}
                   href={item.path}
@@ -280,7 +292,7 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
                 <div style={avatarStyle}>{user?.initials || 'US'}</div>
                 <div style={userTextStyle}>
                   <div style={userNameStyle}>{user?.name || 'Utilisateur'}</div>
-                  <div style={userRoleStyle}>{user?.role || 'Collaborateur'}</div>
+                  <div style={userRoleStyle}>{user?.role || 'Vendeur'}</div>
                 </div>
               </div>
 
@@ -320,7 +332,7 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
               <div style={avatarStyle}>{user?.initials || 'US'}</div>
               <div style={userTextStyle}>
                 <div style={userNameStyle}>{user?.name || 'Utilisateur'}</div>
-                <div style={userRoleStyle}>{user?.role || 'Collaborateur'}</div>
+                <div style={userRoleStyle}>{user?.role || 'Vendeur'}</div>
               </div>
             </div>
 
@@ -336,7 +348,7 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
           </div>
 
           <nav style={drawerNavStyle}>
-            {NAV_ITEMS.map((item) => (
+            {visibleNavItems.map((item) => (
               <Link
                 key={item.path}
                 href={item.path}

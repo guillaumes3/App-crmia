@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     // Car ton 'id' est un chiffre (1) et ton 'user.id' est un UUID (65d3261c...)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("id, organisation_id, is_hq_staff")
+      .select("id, organisation_id, is_hq_staff, role")
       .eq("auth_user_id", user.id) // <--- C'est cette ligne qui débloque tout
       .maybeSingle();
 
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
         user_metadata: {
           is_hq_staff: profile.is_hq_staff === true,
           organisation_id: profile.organisation_id,
+          role: profile.role ?? user.user_metadata?.role,
         },
       },
       expiresAt
@@ -65,10 +66,13 @@ export async function POST(request: Request) {
     }
 
     const token = createIdentitySessionToken(identity, sessionSecret);
+    const organisationId = identity.universe === "client" ? identity.organisationId : null;
+    const role = identity.universe === "client" ? identity.role : null;
     const response = NextResponse.json({
       universe: identity.universe,
       isHqStaff: identity.isHqStaff,
-      organisationId: identity.organisationId,
+      organisationId,
+      role,
     });
 
     // 4. Cookies

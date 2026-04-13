@@ -4,18 +4,20 @@ import {
   IDENTITY_SESSION_COOKIE,
   verifyIdentitySessionToken,
 } from "@/app/utils/identitySession";
+import { getRequiredPermissionForPath, hasPermission } from "@/app/security/permissions";
 
 export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isHqLoginRoute = pathname === "/hq/login";
   const isHqRoute = pathname.startsWith("/hq");
   const isBackofficeRoute = pathname.startsWith("/backoffice");
+  const isLegacyDashboardRoute = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 
   if (isHqLoginRoute) {
     return NextResponse.next();
   }
 
-  if (!isHqRoute && !isBackofficeRoute) {
+  if (!isHqRoute && !isBackofficeRoute && !isLegacyDashboardRoute) {
     return NextResponse.next();
   }
 
@@ -52,6 +54,16 @@ export function proxy(request: NextRequest) {
   }
 
   headers.set("x-kipilote-org-id", identity.organisationId);
+  headers.set("x-kipilote-role", identity.role);
+
+  const requiredPermission = getRequiredPermissionForPath(pathname);
+  if (requiredPermission && !hasPermission(identity.role, requiredPermission)) {
+    return NextResponse.redirect(new URL("/access-denied", request.url));
+  }
+
+  if (pathname === "/dashboard") {
+    return NextResponse.redirect(new URL("/backoffice/dashboard", request.url));
+  }
 
   return NextResponse.next({
     request: {
@@ -65,5 +77,5 @@ function redirectTo404(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/hq/:path*", "/backoffice/:path*"],
+  matcher: ["/hq/:path*", "/backoffice/:path*", "/dashboard/:path*"],
 };
