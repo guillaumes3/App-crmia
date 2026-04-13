@@ -25,6 +25,10 @@ export const createOrganisationSchema = z.object({
     .refine((value) => value.length === 0 || isHttpUrl(value), {
       message: "URL logo invalide. Utilisez une URL http(s).",
     }),
+  adminEmail: z.email("Email administrateur invalide.").transform((value) => value.trim().toLowerCase()),
+  temporaryPassword: z
+    .string()
+    .min(8, "Le mot de passe temporaire doit contenir au moins 8 caracteres."),
 });
 
 export type CreateOrganisationInput = z.infer<typeof createOrganisationSchema>;
